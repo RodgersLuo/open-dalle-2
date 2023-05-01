@@ -3,12 +3,15 @@ from torch.utils.data import Dataset
 import os
 import pandas as pd
 from PIL import Image
+import numpy as np
 
 
 class ImageCaptionDataset(Dataset):
     def __init__(self, images_dir="../data/train/images",
                  table_path="../data/train/data.csv",
-                 transform=None):
+                 transform=None,
+                 shuffle=False):
+        
         self.transform = transform
         self.root_dir = images_dir
 
@@ -17,7 +20,12 @@ class ImageCaptionDataset(Dataset):
         self.captions = self.df['caption']
         self.images = self.df['image']
 
-        print(len(self.captions.tolist()))
+        if shuffle:
+            pmt = np.random.permutation(len(self.df))
+            self.captions = self.captions.iloc[pmt].reset_index(drop=True)
+            self.images = self.images.iloc[pmt].reset_index(drop=True)
+
+        print(len(self.captions))
 
     def __len__(self):
         return len(self.df)

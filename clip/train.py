@@ -13,7 +13,8 @@ import os
 
 import sys
 sys.path.insert(0, 'dataset')
-from dataset import ImageCaptionDataset
+from dataset import ImageCaptionDataset, load_data
+
 
 # set the seed for reproducibility
 rng_seed = 90
@@ -26,25 +27,27 @@ if USE_GPU and torch.cuda.is_available():
     device = torch.device('cuda:0')
 else:
     device = torch.device('cpu')
-
 print(device)
 
-def load_data(batch_size=128, root_dir="./data"):
-    transform = transforms.Compose(
-            [
-                transforms.ToTensor(),
-            ]
-        )
 
-    train_img_dir = os.path.join(root_dir, "train/images") 
-    train_table_dir = os.path.join(root_dir, "train/data.csv")
-    test_img_dir = os.path.join(root_dir, "test/images") 
-    test_table_dir = os.path.join(root_dir, "test/data.csv")
+def load_dataset(batch_size=128, root_dir="./data"):
+    # transform = transforms.Compose(
+    #         [
+    #             transforms.ToTensor(),
+    #         ]
+    #     )
 
-    print(train_img_dir)
+    # train_img_dir = os.path.join(root_dir, "train/images")
+    # train_table_dir = os.path.join(root_dir, "train/data.csv")
+    # test_img_dir = os.path.join(root_dir, "test/images")
+    # test_table_dir = os.path.join(root_dir, "test/data.csv")
 
-    train_dataset = ImageCaptionDataset(train_img_dir, train_table_dir, transform=transform)
-    test_dataset = ImageCaptionDataset(test_img_dir, test_table_dir, transform=transform)
+    # print(train_img_dir)
+
+    # train_dataset = ImageCaptionDataset(train_img_dir, train_table_dir, transform=transform)
+    # test_dataset = ImageCaptionDataset(test_img_dir, test_table_dir, transform=transform)
+
+    train_dataset, test_dataset = load_data(img_size=128)
 
     captions = train_dataset.captions.unique()
 
@@ -160,7 +163,7 @@ def train_part(model, optimizer, loader_train, loader_val, captions, epochs=1):
 
 
 if __name__ == "__main__":
-    loader_train, loader_val, loader_test, captions = load_data()
+    loader_train, loader_val, loader_test, captions = load_dataset()
 
     model = CLIP(embed_dim=128, image_resolution=128, vision_layers=(1, 1, 1, 1),
             vision_width=32, vision_patch_size=None, context_length=77,

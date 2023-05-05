@@ -8,16 +8,17 @@ class Diffusion:
 
     def __init__(self, T=300) -> None:
         # Define beta schedule
-        betas = self.linear_beta_schedule(timesteps=T)
+        self.betas = self.linear_beta_schedule(timesteps=T)
 
         # Pre-calculate different terms for closed form
-        self.alphas = 1. - betas
+        self.alphas = 1. - self.betas
         self.alphas_cumprod = torch.cumprod(self.alphas, axis=0)
         self.alphas_cumprod_prev = F.pad(self.alphas_cumprod[:-1], (1, 0), value=1.0)
         self.sqrt_recip_alphas = torch.sqrt(1.0 / self.alphas)
         self.sqrt_alphas_cumprod = torch.sqrt(self.alphas_cumprod)
         self.sqrt_one_minus_alphas_cumprod = torch.sqrt(1. - self.alphas_cumprod)
-        self.posterior_variance = betas * (1. - self.alphas_cumprod_prev) / (1. - self.alphas_cumprod)
+        self.posterior_variance = self.betas * (1. - self.alphas_cumprod_prev) \
+            / (1. - self.alphas_cumprod)
 
     def get_index_from_list(self, vals, t, x_shape):
         """

@@ -13,7 +13,14 @@ import os
 
 import sys
 sys.path.insert(0, 'dataset')
-from dataset import ImageCaptionDataset, load_data
+from dataset import load_data
+
+
+# Hyperparameters
+IMG_SIZE = 64
+BATCH_SIZE = 128
+EPOCHS = 300
+LR = 5e-4
 
 
 # set the seed for reproducibility
@@ -30,7 +37,7 @@ else:
 print(device)
 
 
-def load_dataset(batch_size=128, root_dir="./data"):
+def load_dataset(batch_size=BATCH_SIZE, root_dir="./data"):
     # transform = transforms.Compose(
     #         [
     #             transforms.ToTensor(),
@@ -47,7 +54,7 @@ def load_dataset(batch_size=128, root_dir="./data"):
     # train_dataset = ImageCaptionDataset(train_img_dir, train_table_dir, transform=transform)
     # test_dataset = ImageCaptionDataset(test_img_dir, test_table_dir, transform=transform)
 
-    train_dataset, test_dataset = load_data(img_size=128)
+    train_dataset, test_dataset = load_data(img_size=IMG_SIZE)
 
     captions = train_dataset.captions.unique()
 
@@ -165,7 +172,7 @@ def train_part(model, optimizer, loader_train, loader_val, captions, epochs=1):
 if __name__ == "__main__":
     loader_train, loader_val, loader_test, captions = load_dataset()
 
-    model = CLIP(embed_dim=128, image_resolution=128, vision_layers=(1, 1, 1, 1),
+    model = CLIP(embed_dim=128, image_resolution=IMG_SIZE, vision_layers=(1, 1, 1, 1),
             vision_width=32, vision_patch_size=None, context_length=77,
             vocab_size=49408, transformer_width=64, transformer_heads=8, transformer_layers=4)
 
@@ -182,12 +189,12 @@ if __name__ == "__main__":
     size_all_mb = (param_size + buffer_size) / 1024**2
     print('model size: {:.3f}MB'.format(size_all_mb))
 
-    optimizer = optim.Adam(model.parameters(), lr=5e-4, weight_decay=1e-8)
+    optimizer = optim.Adam(model.parameters(), lr=LR, weight_decay=1e-8)
 
     params = sum(p.numel() for p in model.parameters() if p.requires_grad)
     print("Total number of parameters is: {}".format(params))
 
-    train_part(model, optimizer, loader_train, loader_val, captions, epochs = 15)
+    train_part(model, optimizer, loader_train, loader_val, captions, epochs = EPOCHS)
     check_accuracy(loader_test, model, captions=captions)
     # torch.save(model.state_dict(), "./models/clip.pt")
     torch.save(model, "./models/clip.pth")

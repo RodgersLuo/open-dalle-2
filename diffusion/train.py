@@ -10,6 +10,7 @@ from unet import UNet
 
 import sys
 sys.path.insert(0, 'dataset')
+sys.path.insert(0, 'open-dalle-2/dataset')
 from dataset import ImageCaptionDataset, load_data
 
 # Define hyperparameters

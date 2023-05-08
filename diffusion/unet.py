@@ -2,6 +2,11 @@ import torch
 from torch import nn
 import math
 
+import sys
+sys.path.insert(0, 'nn_components')
+from transformer import Transformer
+from tokenizer import tokenize
+
 
 def non_linearity():
     return nn.SiLU()
@@ -121,15 +126,12 @@ class SinusoidalPositionEmbeddings(nn.Module):
 
 
 class UNet(nn.Module):
-    """
-    A simplified variant of the Unet architecture.
-    """
-    def __init__(self):
+    def __init__(self, n_vocab, context_length, transformer_width, transformer_layers, transformer_heads):
         super().__init__()
         image_channels = 3
         down_channels = (64, 128, 256, 512, 1024)
         up_channels = (1024, 512, 256, 128, 64)
-        out_dim = 3 
+        out_dim = 3
         time_emb_dim = 32
 
         # Time embedding
@@ -138,6 +140,17 @@ class UNet(nn.Module):
                 nn.Linear(time_emb_dim, time_emb_dim),
                 nn.ReLU()
             )
+        
+        # Transformer encoder
+        self.transformer = Transformer(
+                transformer_width,
+                transformer_layers,
+                transformer_heads,
+            )
+        self.final_ln = nn.LayerNorm(transformer_width)
+        self.token_embedding = nn.Embedding(n_vocab, transformer_width)
+        self.positional_embedding = nn.Parameter(torch.empty(context_length, transformer_width, dtype=torch.float))
+        self.transformer_proj = nn.Linear(transformer_width, time_emb_dim)
         
         # Initial projection
         self.conv0 = nn.Conv2d(image_channels, down_channels[0], 3, padding=1)
@@ -150,22 +163,43 @@ class UNet(nn.Module):
         self.ups = nn.ModuleList([ResidualBlock(up_channels[i], up_channels[i+1], \
                                         time_emb_dim, up=True) \
                     for i in range(len(up_channels)-1)])
-        
         self.output = nn.Conv2d(up_channels[-1], out_dim, 1)
 
-    def forward(self, x, timestep):
+    def embed_tokens(self, tokens):
+        """
+        The output of this transformer is used in two ways: first, the final token embedding is used
+        in place of a class embedding in the ADM model; second, the last layer of token embeddings 
+        (a sequence of K feature vectors) is separately projected to the dimensionality of
+        each attention layer throughout the ADM model, and then concatenated to the attention context at each layer.
+        """
+        assert tokens is not None
+
+        xf_in = self.token_embedding(tokens.long())
+        xf_in = xf_in + self.positional_embedding[None]
+        xf_out = self.transformer(xf_in)
+        xf_out = self.final_ln(xf_out)
+        xf_proj = self.transformer_proj(xf_out[:, -1])
+        xf_out = xf_out.permute(0, 2, 1)  # NLC -> NCL
+        return (xf_proj, xf_out)
+
+    def forward(self, x, timestep, tokens):
         # Embedd time
-        t = self.time_mlp(timestep)
+        embedding = self.time_mlp(timestep)
+
+        # Embed tokens
+        xf_proj, xf_out = self.embed_tokens(tokens)
+        embedding = embedding + xf_proj.to(embedding)
+
         # Initial conv
         x = self.conv0(x)
         # Unet
         residual_inputs = []
         for down in self.downs:
-            x = down(x, t)
+            x = down(x, embedding)
             residual_inputs.append(x)
         for up in self.ups:
             residual_x = residual_inputs.pop()
             # Add residual x as additional channels
             x = torch.cat((x, residual_x), dim=1)           
-            x = up(x, t)
+            x = up(x, embedding)
         return self.output(x)

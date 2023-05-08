@@ -7,14 +7,14 @@ from torch.utils.data import DataLoader
 from torchvision import datasets, transforms
 #other
 import numpy as np
-from tokenizer import tokenize
 from model import CLIP
 import os
 
 import sys
 sys.path.insert(0, 'dataset')
+sys.path.insert(0, 'nn_components')
 from dataset import load_data
-
+from tokenizer import tokenize
 
 # Hyperparameters
 IMG_SIZE = 64

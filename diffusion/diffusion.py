@@ -45,7 +45,7 @@ class Diffusion:
 
 
 @torch.no_grad()
-def sample_timestep(x, t, model, diffusion):
+def sample_timestep(x, t, tokens, model, diffusion, cf_guidance=False):
     """
     Calls the model to predict the noise in the image and returns
     the denoised image.
@@ -57,9 +57,12 @@ def sample_timestep(x, t, model, diffusion):
     )
     sqrt_recip_alphas_t = diffusion.get_index_from_list(diffusion.sqrt_recip_alphas, t, x.shape)
 
+    # if cf_guidance:
+    #     null_token = torch.zeros(tokens.shape[1])
+
     # Call model (current image - noise prediction)
     model_mean = sqrt_recip_alphas_t * (
-        x - betas_t * model(x, t) / sqrt_one_minus_alphas_cumprod_t
+        x - betas_t * model(x, t, tokens=tokens) / sqrt_one_minus_alphas_cumprod_t
     )
     posterior_variance_t = diffusion.get_index_from_list(diffusion.posterior_variance, t, x.shape)
 
@@ -67,5 +70,4 @@ def sample_timestep(x, t, model, diffusion):
         # The t's are offset from the t's in the paper
         return model_mean
     else:
-        noise = torch.randn_like(x)
-        return model_mean + torch.sqrt(posterior_variance_t) * noise
+        return model_mean + torch.sqrt(posterior_variance_t) * torch.randn_like(x)

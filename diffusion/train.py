@@ -16,7 +16,7 @@ from tokenizer import tokenize
 
 # Define hyperparameters
 T = 300
-BATCH_SIZE = 128
+BATCH_SIZE = 256
 IMG_SIZE = 64
 EPOCHS = 1000
 LR = 0.001
@@ -30,6 +30,7 @@ CONTEXT_LENGTH=77
 TRANSFORMER_WIDTH=64
 TRANSFORMER_LAYERS=4
 TRANSFORMER_HEADS=8
+QKV_HEADS = 8
 
 # The null caption embedding
 NULL_TOKEN = torch.zeros(CONTEXT_LENGTH, dtype=torch.int)
@@ -44,7 +45,7 @@ def train(model, dataloader, diffusion):
 
     for epoch in range(EPOCHS):
         for step, (img, txt) in enumerate(dataloader):
-            model.train()
+            # model.train()
             optimizer.zero_grad()
 
             t = torch.randint(0, T, (BATCH_SIZE,), device=device).long()
@@ -53,7 +54,7 @@ def train(model, dataloader, diffusion):
             mask = torch.randn(BATCH_SIZE) < NULL_EMB_RATE
             tokens[mask] = NULL_TOKEN
             tokens = tokens.to(device=device)
-            
+
             loss = get_loss(model, img, t, tokens, diffusion)
             loss.backward()
             torch.nn.utils.clip_grad.clip_grad_norm_(model.parameters(), GRAD_CLIP)
@@ -61,8 +62,8 @@ def train(model, dataloader, diffusion):
 
             if step == 0:
                 print(f"Epoch {epoch} | step {step:03d} Loss: {loss.item()} ")
-                sample_plot_image(model, tokens[0], diffusion, f"{epoch:03}(1)", caption=txt[0])
-                sample_plot_image(model, tokens[1], diffusion, f"{epoch:03}(2)", caption=txt[1])
+                sample_plot_image(model, tokens[None, 0], diffusion, f"{epoch:03}(1)", caption=txt[0])
+                sample_plot_image(model, tokens[None, 1], diffusion, f"{epoch:03}(2)", caption=txt[1])
 
 
 def get_loss(model, x_0, t, tokens, diffusion):
@@ -73,16 +74,16 @@ def get_loss(model, x_0, t, tokens, diffusion):
 
 @torch.no_grad()
 def sample_plot_image(model, tokens, diffusion, filename, **kwargs):
-    model.eval()
+    # model.eval()
     # Sample noise
     img_size = IMG_SIZE
     img = torch.randn((1, 3, img_size, img_size), device=device)
-    plt.figure(figsize=(15,15))
+    plt.figure(figsize=(15,8))
     plt.axis('off')
-    if torch.equal(tokens.detach().cpu(), NULL_TOKEN):
-        plt.title("Null label")
-    else:
-        plt.title(kwargs["caption"])
+    # if torch.equal(tokens.detach().cpu(), NULL_TOKEN):
+    #     plt.title("Null label")
+    # else:
+    #     plt.title(kwargs["caption"])
 
     num_images = 10
     stepsize = int(T/num_images)
@@ -97,7 +98,7 @@ def sample_plot_image(model, tokens, diffusion, filename, **kwargs):
             show_tensor_image(img.detach().cpu())
     if filename is not None:
         plt.savefig(f"./outputs/diffusion/{filename}")
-    plt.show()
+    plt.close()
 
 
 def show_tensor_image(image):
@@ -122,7 +123,8 @@ if __name__ == "__main__":
         context_length=CONTEXT_LENGTH,
         transformer_width=TRANSFORMER_WIDTH,
         transformer_layers=TRANSFORMER_LAYERS,
-        transformer_heads=TRANSFORMER_HEADS
+        transformer_heads=TRANSFORMER_HEADS,
+        qkv_heads=QKV_HEADS
     )
     print("Num params: ", sum(p.numel() for p in model.parameters()))
     train_data, _ = load_data()

@@ -34,18 +34,18 @@ class Diffusion:
         Takes an image and a timestep as input and
         returns the noisy version of it
         """
-        noise = torch.randn_like(x_0)
+        noise = torch.randn_like(x_0).to(device)
         sqrt_alphas_cumprod_t = self.get_index_from_list(self.sqrt_alphas_cumprod, t, x_0.shape)
         sqrt_one_minus_alphas_cumprod_t = self.get_index_from_list(
             self.sqrt_one_minus_alphas_cumprod, t, x_0.shape
         )
         # mean + variance
         return sqrt_alphas_cumprod_t.to(device) * x_0.to(device) \
-        + sqrt_one_minus_alphas_cumprod_t.to(device) * noise.to(device), noise.to(device)
+        + sqrt_one_minus_alphas_cumprod_t.to(device) * noise, noise
 
 
 @torch.no_grad()
-def sample_timestep(x, t, tokens, model, diffusion, cf_guidance=False):
+def sample_timestep(x, t, tokens, model, diffusion, cf_guidance_scale=None):
     """
     Calls the model to predict the noise in the image and returns
     the denoised image.
@@ -57,12 +57,19 @@ def sample_timestep(x, t, tokens, model, diffusion, cf_guidance=False):
     )
     sqrt_recip_alphas_t = diffusion.get_index_from_list(diffusion.sqrt_recip_alphas, t, x.shape)
 
-    # if cf_guidance:
-    #     null_token = torch.zeros(tokens.shape[1])
+    if cf_guidance_scale is None:
+        noise = model(x, t, tokens=tokens)
+    else:
+        null_token = torch.zeros_like(tokens, dtype=tokens.dtype, device=tokens.device)
+        noise_label = model(x, t, tokens=tokens)
+        noise = model(x, t, tokens=null_token)
+        delta = cf_guidance_scale * (noise_label - noise)
+        delta[torch.all(tokens==null_token[0], dim=1)] = torch.zeros_like(noise[0], dtype=noise.dtype)
+        noise = noise + delta
 
     # Call model (current image - noise prediction)
     model_mean = sqrt_recip_alphas_t * (
-        x - betas_t * model(x, t, tokens=tokens) / sqrt_one_minus_alphas_cumprod_t
+        x - betas_t * noise / sqrt_one_minus_alphas_cumprod_t
     )
     posterior_variance_t = diffusion.get_index_from_list(diffusion.posterior_variance, t, x.shape)
 

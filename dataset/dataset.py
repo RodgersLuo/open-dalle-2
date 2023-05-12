@@ -1,5 +1,6 @@
 import torch
 from torch.utils.data import Dataset
+import torchvision
 from torchvision import transforms
 import os
 import pandas as pd
@@ -43,7 +44,7 @@ class ImageCaptionDataset(Dataset):
         return img, caption
 
 
-def load_data(img_size=64, root_dir="./data"):
+def load_data(img_size=32, root_dir="./data"):
     # transform = transforms.Compose(
     #         [
     #             transforms.ToTensor(),
@@ -66,4 +67,7 @@ def load_data(img_size=64, root_dir="./data"):
     train_dataset = ImageCaptionDataset(train_img_dir, train_table_dir, transform=data_transform)
     test_dataset = ImageCaptionDataset(test_img_dir, test_table_dir, transform=data_transform)
 
+    # train_dataset= torchvision.datasets.CIFAR10(root=".", download=True, transform=data_transform)
+    # test_dataset = None
+    
     return train_dataset, test_dataset

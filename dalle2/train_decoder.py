@@ -7,7 +7,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import datetime
 import os
-from diffusion import sample_timestep, Diffusion
+from dalle2 import sample_timestep, Diffusion
 from unet import UNet
 
 import sys

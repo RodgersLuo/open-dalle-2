@@ -277,11 +277,13 @@ class UNet(nn.Module):
                  transformer_layers,
                  transformer_heads,
                  qkv_heads,
+                 clip_emb_dim=None,
                  ):
         super().__init__()
         image_channels = 3
         up_channels = down_channels[::-1]
         out_dim = 3
+        self.clip_emb_dim = clip_emb_dim
 
         # Time embedding
         self.time_mlp = nn.Sequential(
@@ -289,6 +291,14 @@ class UNet(nn.Module):
                 nn.Linear(time_emb_dim, time_emb_dim),
                 non_linearity()
         )
+
+        # CLIP embedding
+        if clip_emb_dim is not None:
+            self.clip_emb_projection = nn.Sequential(
+                nn.Linear(clip_emb_dim, time_emb_dim),
+                non_linearity(),
+                nn.Linear(time_emb_dim, time_emb_dim),
+            )
 
         # Transformer encoder
         self.transformer = Transformer(
@@ -312,13 +322,7 @@ class UNet(nn.Module):
                 AttentionBlock(down_channels[i+1], num_heads=qkv_heads, encoder_channels=transformer_width)
             )
             downs.append(down)
-            # downs.append(ResidualBlock(down_channels[i], down_channels[i+1], time_emb_dim))
-            # downs.append(AttentionBlock(down_channels[i+1], num_heads=qkv_heads, encoder_channels=transformer_width))
         self.downs = nn.ModuleList(downs)
-
-        # self.downs = nn.ModuleList([ResidualBlock(down_channels[i], down_channels[i+1], \
-        #                             time_emb_dim) \
-        #             for i in range(len(down_channels)-1)])
 
         # Upsample
         ups = []
@@ -328,13 +332,8 @@ class UNet(nn.Module):
                 AttentionBlock(up_channels[i+1], num_heads=qkv_heads, encoder_channels=transformer_width)
             )
             ups.append(up)
-            # ups.append(ResidualBlock(up_channels[i], up_channels[i+1], time_emb_dim, up=True))
-            # ups.append(AttentionBlock(up_channels[i+1], num_heads=qkv_heads, encoder_channels=transformer_width))
         self.ups = nn.ModuleList(ups)
 
-        # self.ups = nn.ModuleList([ResidualBlock(up_channels[i], up_channels[i+1], \
-        #                                 time_emb_dim, up=True) \
-        #             for i in range(len(up_channels)-1)])
         self.output = zero_module(nn.Conv2d(up_channels[-1], out_dim, 1))
 
     def embed_tokens(self, tokens):
@@ -354,11 +353,16 @@ class UNet(nn.Module):
         xf_out = xf_out.permute(0, 2, 1)  # NLC -> NCL
         return (xf_proj, xf_out)
 
-    def forward(self, x, timestep, tokens):
-        # Embedd time
+    def forward(self, x, timestep, tokens, clip_emb=None):
+        # Embed time
         embedding = self.time_mlp(timestep)
 
-        # Embed tokens
+        # Embed CLIP embeddings
+        if clip_emb is not None:
+            assert clip_emb.shape[-1] == self.clip_emb_dim
+            embedding += self.clip_emb_projection(clip_emb)
+
+        # Embed text tokens
         xf_proj, xf_out = self.embed_tokens(tokens)
         embedding = embedding + xf_proj.to(embedding)
 
@@ -375,6 +379,8 @@ class UNet(nn.Module):
             x = torch.cat((x, residual_x), dim=1)
             x = up(x, embedding, xf_out)
         return self.output(x)
+
+
 
 
 def checkpoint(func, inputs, params, flag):

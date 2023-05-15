@@ -45,12 +45,15 @@ class Diffusion:
 
 
 @torch.no_grad()
-def sample_timestep(x, t, tokens, model, diffusion, cf_guidance_scale=None):
+def sample_timestep(x, t, tokens, clip_emb, model, diffusion, cf_guidance_scale=None):
     """
     Calls the model to predict the noise in the image and returns
     the denoised image.
     Applies noise to this image, if we are not in the last step yet.
     """
+    assert len(x) == 1
+    assert len(tokens) == 1
+    assert len(clip_emb) == 1
     betas_t = diffusion.get_index_from_list(diffusion.betas, t, x.shape)
     sqrt_one_minus_alphas_cumprod_t = diffusion.get_index_from_list(
         diffusion.sqrt_one_minus_alphas_cumprod, t, x.shape
@@ -58,13 +61,18 @@ def sample_timestep(x, t, tokens, model, diffusion, cf_guidance_scale=None):
     sqrt_recip_alphas_t = diffusion.get_index_from_list(diffusion.sqrt_recip_alphas, t, x.shape)
 
     if cf_guidance_scale is None:
-        noise = model(x, t, tokens=tokens)
+        noise = model(x, t, tokens=tokens, clip_emb=clip_emb)
     else:
         null_token = torch.zeros_like(tokens, dtype=tokens.dtype, device=tokens.device)
-        noise_label = model(x, t, tokens=tokens)
-        noise = model(x, t, tokens=null_token)
+        null_clip_emb = torch.zeros_like(clip_emb, dtype=clip_emb.dtype, device=clip_emb.device)
+
+        # The predicted noise with conditioning
+        noise_label = model(x, t, tokens=tokens, clip_emb=clip_emb)
+
+        # The predicted noise without conditioning
+        noise = model(x, t, tokens=null_token, clip_emb=null_clip_emb)
         delta = cf_guidance_scale * (noise_label - noise)
-        delta[torch.all(tokens==null_token[0], dim=1)] = torch.zeros_like(noise[0], dtype=noise.dtype)
+        # delta[torch.all(tokens==null_token[0], dim=1)] = torch.zeros_like(noise[0], dtype=noise.dtype)
         noise = noise + delta
 
     # Call model (current image - noise prediction)

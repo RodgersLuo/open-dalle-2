@@ -271,13 +271,13 @@ class UNet(nn.Module):
     def __init__(self,
                  down_channels,
                  time_emb_dim,
+                 clip_emb_dim,
                  n_vocab,
                  context_length,
                  transformer_width,
                  transformer_layers,
                  transformer_heads,
                  qkv_heads,
-                 clip_emb_dim=None,
                  ):
         super().__init__()
         image_channels = 3
@@ -293,12 +293,11 @@ class UNet(nn.Module):
         )
 
         # CLIP embedding
-        if clip_emb_dim is not None:
-            self.clip_emb_projection = nn.Sequential(
-                nn.Linear(clip_emb_dim, time_emb_dim),
-                non_linearity(),
-                nn.Linear(time_emb_dim, time_emb_dim),
-            )
+        self.clip_emb_projection = nn.Sequential(
+            nn.Linear(clip_emb_dim, time_emb_dim),
+            non_linearity(),
+            nn.Linear(time_emb_dim, time_emb_dim),
+        )
 
         # Transformer encoder
         self.transformer = Transformer(
@@ -353,14 +352,13 @@ class UNet(nn.Module):
         xf_out = xf_out.permute(0, 2, 1)  # NLC -> NCL
         return (xf_proj, xf_out)
 
-    def forward(self, x, timestep, tokens, clip_emb=None):
+    def forward(self, x, timestep, tokens, clip_emb):
         # Embed time
         embedding = self.time_mlp(timestep)
 
         # Embed CLIP embeddings
-        if clip_emb is not None:
-            assert clip_emb.shape[-1] == self.clip_emb_dim
-            embedding += self.clip_emb_projection(clip_emb)
+        assert clip_emb.shape[-1] == self.clip_emb_dim
+        embedding += self.clip_emb_projection(clip_emb)
 
         # Embed text tokens
         xf_proj, xf_out = self.embed_tokens(tokens)

@@ -17,7 +17,7 @@ from dataset import load_data
 from tokenizer import tokenize
 
 # Hyperparameters
-IMG_SIZE = 64
+IMG_SIZE = 32
 BATCH_SIZE = 128
 EPOCHS = 300
 LR = 5e-4
@@ -172,9 +172,18 @@ def train_part(model, optimizer, loader_train, loader_val, captions, epochs=1):
 if __name__ == "__main__":
     loader_train, loader_val, loader_test, captions = load_dataset()
 
-    model = CLIP(embed_dim=128, image_resolution=IMG_SIZE, vision_layers=(1, 1, 1, 1),
-            vision_width=32, vision_patch_size=None, context_length=77,
-            vocab_size=49408, transformer_width=64, transformer_heads=8, transformer_layers=4)
+    model = CLIP(
+        embed_dim=48,
+        image_resolution=IMG_SIZE,
+        vision_layers=(1, 1, 1, 1),
+        vision_width=32,
+        vision_patch_size=None,
+        context_length=33,
+        vocab_size=49408,
+        transformer_width=64,
+        transformer_heads=8,
+        transformer_layers=3
+        )
 
     # check_accuracy(loader_val, model, captions)
 
@@ -197,5 +206,5 @@ if __name__ == "__main__":
     train_part(model, optimizer, loader_train, loader_val, captions, epochs = EPOCHS)
     check_accuracy(loader_test, model, captions=captions)
     # torch.save(model.state_dict(), "./models/clip.pt")
-    torch.save(model, "./models/clip.pth")
+    torch.save(model.state_dict(), "./models/clip.pth")
 

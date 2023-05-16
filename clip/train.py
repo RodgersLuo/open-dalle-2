@@ -9,6 +9,7 @@ from torchvision import datasets, transforms
 import numpy as np
 from model import CLIP
 import os
+import yaml
 
 import sys
 sys.path.insert(0, 'dataset')
@@ -16,11 +17,15 @@ sys.path.insert(0, 'nn_components')
 from dataset import load_data
 from tokenizer import tokenize
 
+with open('./model_config.yml', 'r') as file:
+    config = yaml.safe_load(file)
+    clip_config = config["CLIP"]
+
 # Hyperparameters
-IMG_SIZE = 32
-BATCH_SIZE = 128
-EPOCHS = 300
-LR = 5e-4
+IMG_SIZE = config["img_size"]
+BATCH_SIZE = clip_config["batch_size"]
+EPOCHS = clip_config["epochs"]
+LR = clip_config["lr"]
 
 
 # set the seed for reproducibility
@@ -128,7 +133,7 @@ def check_accuracy(loader, model, captions, analysis=False):
         return top1_acc, top5_acc
 
 
-def train_part(model, optimizer, loader_train, loader_val, captions, epochs=1):
+def train_part(model, optimizer, loader_train, loader_val, captions, epochs):
     """
     Train a model using the PyTorch Module API.
 
@@ -170,19 +175,19 @@ def train_part(model, optimizer, loader_train, loader_val, captions, epochs=1):
 
 
 if __name__ == "__main__":
-    loader_train, loader_val, loader_test, captions = load_dataset()
+    loader_train, loader_test, loader_test, captions = load_dataset()
 
     model = CLIP(
-        embed_dim=48,
+        embed_dim=clip_config["embed_dim"],
         image_resolution=IMG_SIZE,
-        vision_layers=(1, 1, 1, 1),
-        vision_width=32,
-        vision_patch_size=None,
-        context_length=33,
-        vocab_size=49408,
-        transformer_width=64,
-        transformer_heads=8,
-        transformer_layers=3
+        vision_layers=clip_config["vision_layers"],
+        vision_width=clip_config["vision_width"],
+        vision_patch_size=clip_config["vision_patch_size"],
+        context_length=clip_config["context_length"],
+        vocab_size=clip_config["vocab_size"],
+        transformer_width=clip_config["transformer_width"],
+        transformer_heads=clip_config["transformer_heads"],
+        transformer_layers=clip_config["transformer_layers"]
         )
 
     # check_accuracy(loader_val, model, captions)
@@ -203,7 +208,7 @@ if __name__ == "__main__":
     params = sum(p.numel() for p in model.parameters() if p.requires_grad)
     print("Total number of parameters is: {}".format(params))
 
-    train_part(model, optimizer, loader_train, loader_val, captions, epochs = EPOCHS)
+    train_part(model, optimizer, loader_train, loader_test, captions, epochs = EPOCHS)
     check_accuracy(loader_test, model, captions=captions)
     # torch.save(model.state_dict(), "./models/clip.pt")
     torch.save(model.state_dict(), "./models/clip.pth")

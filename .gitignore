@@ -135,5 +135,5 @@ dmypy.json
 
 *.pt
 *.pth
-outputs
+outputs/*
 cifar-10-batches-py/*

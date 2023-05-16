@@ -42,4 +42,5 @@ class Transformer(nn.Module):
         self.resblocks = nn.Sequential(*[ResidualAttentionBlock(width, heads, attn_mask) for _ in range(layers)])
 
     def forward(self, x: torch.Tensor):
-        return self.resblocks(x)
+        x = self.resblocks(x)
+        return x

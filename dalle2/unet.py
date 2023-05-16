@@ -1,6 +1,7 @@
 import torch
 from torch import nn
 import math
+from einops.layers.torch import Rearrange
 
 import sys
 sys.path.insert(0, 'nn_components')
@@ -114,7 +115,6 @@ class ResidualBlock(nn.Module):
         h = self.conv2(h)
         # Down or Upsample
         h = self.transform_h(h)
-
         # Residual connection
         x = self.skip_connection(x)
         x = self.transform_x(x)
@@ -278,6 +278,7 @@ class UNet(nn.Module):
                  transformer_layers,
                  transformer_heads,
                  qkv_heads,
+                 n_clip_tokens=4
                  ):
         super().__init__()
         image_channels = 3
@@ -292,11 +293,17 @@ class UNet(nn.Module):
                 non_linearity()
         )
 
-        # CLIP embedding
-        self.clip_emb_projection = nn.Sequential(
+        # Project CLIP embedding to timestep embedding
+        self.clip_emb_to_time_emb = nn.Sequential(
             nn.Linear(clip_emb_dim, time_emb_dim),
             non_linearity(),
             nn.Linear(time_emb_dim, time_emb_dim),
+        )
+
+        # Project CLIP embedding to n text tokens
+        self.clip_emb_to_tokens = nn.Sequential(
+            nn.Linear(clip_emb_dim, context_length * n_clip_tokens),
+            Rearrange('b (n d) -> b n d', n = n_clip_tokens)
         )
 
         # Transformer encoder
@@ -318,7 +325,7 @@ class UNet(nn.Module):
         for i in range(len(down_channels)-1):
             down = UNetLayer(
                 ResidualBlock(down_channels[i], down_channels[i+1], time_emb_dim),
-                AttentionBlock(down_channels[i+1], num_heads=qkv_heads, encoder_channels=transformer_width)
+                AttentionBlock(down_channels[i+1], num_heads=qkv_heads, encoder_channels=transformer_width + n_clip_tokens)
             )
             downs.append(down)
         self.downs = nn.ModuleList(downs)
@@ -328,7 +335,7 @@ class UNet(nn.Module):
         for i in range(len(up_channels)-1):
             up = UNetLayer(
                 ResidualBlock(up_channels[i], up_channels[i+1], time_emb_dim, up=True),
-                AttentionBlock(up_channels[i+1], num_heads=qkv_heads, encoder_channels=transformer_width)
+                AttentionBlock(up_channels[i+1], num_heads=qkv_heads, encoder_channels=transformer_width + n_clip_tokens)
             )
             ups.append(up)
         self.ups = nn.ModuleList(ups)
@@ -356,13 +363,16 @@ class UNet(nn.Module):
         # Embed time
         embedding = self.time_mlp(timestep)
 
-        # Embed CLIP embeddings
+        # Embed CLIP embeddings in timestep embeddings
         assert clip_emb.shape[-1] == self.clip_emb_dim
-        embedding += self.clip_emb_projection(clip_emb)
+        embedding += self.clip_emb_to_time_emb(clip_emb)
 
         # Embed text tokens
         xf_proj, xf_out = self.embed_tokens(tokens)
         embedding = embedding + xf_proj.to(embedding)
+
+        # Concat CLIP embeddings to text tokens
+        xf_out = torch.cat((xf_out, self.clip_emb_to_tokens(clip_emb)), dim=-2)
 
         # Initial conv
         x = self.conv0(x)

@@ -63,6 +63,8 @@ NULL_CLIP_EMB = torch.zeros((1, CLIP_EMB_DIM))
 device = "cuda" if torch.cuda.is_available() else "cpu"
 print(device)
 
+torch.cuda.empty_cache()
+
 timestr = datetime.datetime.now().strftime("%m-%d %H:%M:%S")
 
 classes = ('A plane', 'A car', 'a bird', 'a cat',
@@ -73,7 +75,6 @@ def train(unet, dataloader, diffusion, clip=None):
     optimizer = Adam(unet.parameters(), lr=LR)
 
     for epoch in range(EPOCHS):
-        torch.cuda.empty_cache()
         for step, (img, txt) in enumerate(dataloader):
             # txt = [classes[i] for i in txt]
 

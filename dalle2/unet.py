@@ -314,7 +314,7 @@ class UNet(nn.Module):
         )
         self.final_ln = nn.LayerNorm(transformer_width)
         self.token_embedding = nn.Embedding(n_vocab, transformer_width)
-        self.positional_embedding = nn.Parameter(torch.empty(context_length, transformer_width, dtype=torch.float))
+        self.positional_embedding = nn.Parameter(torch.rand(context_length, transformer_width, dtype=torch.float))
         self.transformer_proj = nn.Linear(transformer_width, time_emb_dim)
 
         # Initial projection

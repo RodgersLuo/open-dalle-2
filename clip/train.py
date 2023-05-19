@@ -12,12 +12,12 @@ import os
 import yaml
 
 import sys
-sys.path.insert(0, 'dataset')
-sys.path.insert(0, 'nn_components')
+sys.path.insert(0, "dataset")
+sys.path.insert(0, "nn_components")
 from dataset import load_data
 from tokenizer import tokenize
 
-with open('./model_config.yml', 'r') as file:
+with open("./model_config.yml", "r") as file:
     config = yaml.safe_load(file)
     clip_config = config["CLIP"]
 
@@ -36,9 +36,9 @@ USE_GPU = True
 dtype = torch.float32
 
 if USE_GPU and torch.cuda.is_available():
-    device = torch.device('cuda:0')
+    device = torch.device("cuda:0")
 else:
-    device = torch.device('cpu')
+    device = torch.device("cpu")
 print(device)
 
 
@@ -124,10 +124,10 @@ def check_accuracy(loader, model, captions, analysis=False):
             #   stack_predicts = torch.cat([stack_predicts, preds], 0)
         top1_acc = float(num_top1_correct) / num_samples
         top5_acc = float(num_top5_correct) / num_samples
-        print('Got %d / %d correct of val set, top 1 acc : %.2f, top 5 acc: %.2f'
+        print("Got %d / %d correct of val set, top 1 acc : %.2f, top 5 acc: %.2f"
                 % (num_top1_correct, num_samples, 100 * top1_acc, 100 * top5_acc))
         # if analysis:
-        #   print('check acc', type(stack_predicts), type(stack_labels))
+        #   print("check acc", type(stack_predicts), type(stack_labels))
         #   confusion(stack_predicts, stack_labels)
         #   incorrect_preds(preds, y, x)
         return top1_acc, top5_acc
@@ -170,7 +170,7 @@ def train_part(model, optimizer, loader_train, loader_val, captions, epochs):
             optimizer.step()
 
             if t % print_every == 0:
-                print('Epoch: %d, Iteration %d, loss = %.4f' % (e, t, loss.item()))
+                print("Epoch: %d, Iteration %d, loss = %.4f" % (e, t, loss.item()))
         check_accuracy(loader_val, model, captions)
 
 
@@ -201,7 +201,7 @@ if __name__ == "__main__":
         buffer_size += buffer.nelement() * buffer.element_size()
 
     size_all_mb = (param_size + buffer_size) / 1024**2
-    print('model size: {:.3f}MB'.format(size_all_mb))
+    print("model size: {:.3f}MB".format(size_all_mb))
 
     optimizer = optim.Adam(model.parameters(), lr=LR, weight_decay=1e-8)
 
@@ -211,5 +211,5 @@ if __name__ == "__main__":
     train_part(model, optimizer, loader_train, loader_test, captions, epochs = EPOCHS)
     check_accuracy(loader_test, model, captions=captions)
     # torch.save(model.state_dict(), "./models/clip.pt")
-    torch.save(model.state_dict(), "./models/clip.pth")
+    torch.save(model.state_dict(), clip_config["model_path"])
 

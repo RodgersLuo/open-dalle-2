@@ -8,6 +8,7 @@ import numpy as np
 import datetime
 import os
 import yaml
+import wandb
 
 from diffusion import sample_timestep, Diffusion
 from unet import UNet
@@ -25,6 +26,13 @@ from model import CLIP
 with open('./model_config.yml', 'r') as file:
     config = yaml.safe_load(file)
     decoder_config = config["Decoder"]
+
+wandb.init(
+    # set the wandb project where this run will be logged
+    project="open-dalle-2",
+    # track hyperparameters and run metadata
+    config=config
+)
 
 # Define hyperparameters
 T = decoder_config["diffusion_timesteps"]
@@ -72,6 +80,8 @@ classes = ('A plane', 'A car', 'a bird', 'a cat',
 
 def train(unet, dataloader, diffusion, clip=None):
     unet.to(device)
+    wandb.watch(unet, log="all", log_freq=10)
+
     optimizer = Adam(unet.parameters(), lr=LR)
 
     for epoch in range(EPOCHS):
@@ -94,7 +104,7 @@ def train(unet, dataloader, diffusion, clip=None):
             if clip is not None:
                 clip_embedding = clip.encode_image(img)
                 # clip_embedding /= clip_embedding.norm(dim=1, keepdim=True)
-                mask = torch.rand(BATCH_SIZE) < NULL_CLIP_EMB_RATE
+                # mask = torch.rand(BATCH_SIZE) < NULL_CLIP_EMB_RATE
                 clip_embedding[mask] = NULL_CLIP_EMB
                 clip_embedding = clip_embedding.to(device=device)
             else:
@@ -111,9 +121,11 @@ def train(unet, dataloader, diffusion, clip=None):
 
             if step == 0:
                 print(f"Epoch {epoch} | step {step:03d} Loss: {loss.item()} ")
-                sample_plot_image(unet, tokens[None, 0], clip_embedding[None, 0], diffusion, f"{epoch:03}(1)", caption=txt[0])
-                if epoch < 10:
-                    sample_plot_image(unet, tokens[None, 1], clip_embedding[None, 1], diffusion, f"{epoch:03}(2)", caption=txt[1])
+                wandb.log({"loss": loss.item()})
+
+                sample_plot_image(unet, tokens[None, 0], clip_embedding[None, 0], diffusion, f"{epoch:03}(0)", caption=txt[0], guidance_scale=1.5)
+                sample_plot_image(unet, tokens[None, 0], clip_embedding[None, 0], diffusion, f"{epoch:03}(1)", caption=txt[0], guidance_scale=2)
+                sample_plot_image(unet, tokens[None, 1], clip_embedding[None, 1], diffusion, f"{epoch:03}(2)", caption=txt[1], guidance_scale=3)
 
 
 # def get_loss(unet, x_0, t, tokens, diffusion, clip_emb=None):
@@ -123,7 +135,7 @@ def train(unet, dataloader, diffusion, clip=None):
 
 
 @torch.no_grad()
-def sample_plot_image(unet, tokens, clip_emb, diffusion, filename, **kwargs):
+def sample_plot_image(unet, tokens, clip_emb, diffusion, filename, guidance_scale=GUIDANCE_SCALE, **kwargs):
     # model.eval()
     assert tokens.shape == (1, CONTEXT_LENGTH)
     # Sample noise
@@ -136,21 +148,25 @@ def sample_plot_image(unet, tokens, clip_emb, diffusion, filename, **kwargs):
 
     title = kwargs["caption"]
     if torch.equal(tokens.detach().cpu(), NULL_TEXT_TOKEN):
-        title = f"{title}, null text token"
+        # title = f"{title}, null text token"
+        pass
     else:
         title = f"{title}, with text token"
 
     assert clip_emb.shape == (1, CLIP_EMB_DIM)
     if torch.equal(clip_emb.detach().cpu(), NULL_CLIP_EMB):
-        title = f"{title}, null CLIP embedding"
+        # title = f"{title}, null CLIP embedding"
+        pass
     else:
         title = f"{title}, with CLIP embedding"
+
+    title = f"{title}, with guidance scale {guidance_scale}"
 
     plt.title(title)
 
     for i in range(0,T)[::-1]:
         t = torch.full((1,), i, device=device, dtype=torch.long)
-        img = sample_timestep(img, t, tokens, clip_emb, unet, diffusion, cf_guidance_scale=GUIDANCE_SCALE)
+        img = sample_timestep(img, t, tokens, clip_emb, unet, diffusion, cf_guidance_scale=guidance_scale)
         # Edit: This is to maintain the natural range of the distribution
         img = torch.clamp(img, -1.0, 1.0)
         if i % stepsize == 0:
@@ -159,6 +175,7 @@ def sample_plot_image(unet, tokens, clip_emb, diffusion, filename, **kwargs):
     if filename is not None:
         os.makedirs(f"./outputs/diffusion/{timestr}", exist_ok=True)
         plt.savefig(f"./outputs/diffusion/{timestr}/{filename}")
+        wandb.log({filename: wandb.Image(fig)})
     plt.close()
 
 
@@ -230,4 +247,3 @@ if __name__ == "__main__":
     dataloader = DataLoader(train_data, batch_size=BATCH_SIZE, shuffle=True, drop_last=True)
 
     train(unet, dataloader, diffusion, clip=clip)
-

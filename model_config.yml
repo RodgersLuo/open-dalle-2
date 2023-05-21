@@ -23,12 +23,12 @@ CLIP:
 Decoder:
   # Define hyperparameters
   diffusion_timesteps: 300
-  batch_size: 128
-  epochs: 1000
+  batch_size: 64
+  epochs: 1500
   lr: 0.001
   grad_clip: 0.005
-  null_text_emb_rate: 0.5
-  null_clip_emb_rate: 0.1
+  null_text_emb_rate: 0.2
+  null_clip_emb_rate: 0.2
   guidance_scale: 3
 
   # UNet
@@ -38,9 +38,13 @@ Decoder:
   # UNet Transformer
   n_vocab: 49408
   context_length: 33
-  transformer_width: 32
+  transformer_width: 64
   transformer_layers: 3
-  transformer_heads: 4
+  transformer_heads: 8
 
   # UNet attention block
-  qkv_heads: 4
+  qkv_heads: 8
+
+
+Prior:
+

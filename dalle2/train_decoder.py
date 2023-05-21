@@ -122,10 +122,10 @@ def train(unet, dataloader, diffusion, clip=None):
             if step == 0:
                 print(f"Epoch {epoch} | step {step:03d} Loss: {loss.item()} ")
                 wandb.log({"loss": loss.item()})
-
-                sample_plot_image(unet, tokens[None, 0], clip_embedding[None, 0], diffusion, f"{epoch:03}(0)", caption=txt[0], guidance_scale=1.5)
-                sample_plot_image(unet, tokens[None, 0], clip_embedding[None, 0], diffusion, f"{epoch:03}(1)", caption=txt[0], guidance_scale=2)
-                sample_plot_image(unet, tokens[None, 1], clip_embedding[None, 1], diffusion, f"{epoch:03}(2)", caption=txt[1], guidance_scale=3)
+                if epoch < 20 or epoch % 3 == 0:
+                    sample_plot_image(unet, tokens[None, 0], clip_embedding[None, 0], diffusion, f"{epoch:03}(0)", caption=txt[0], guidance_scale=1.5)
+                    sample_plot_image(unet, tokens[None, 0], clip_embedding[None, 0], diffusion, f"{epoch:03}(1)", caption=txt[0], guidance_scale=2)
+                    sample_plot_image(unet, tokens[None, 1], clip_embedding[None, 1], diffusion, f"{epoch:03}(2)", caption=txt[1], guidance_scale=3)
 
 
 # def get_loss(unet, x_0, t, tokens, diffusion, clip_emb=None):
@@ -158,9 +158,7 @@ def sample_plot_image(unet, tokens, clip_emb, diffusion, filename, guidance_scal
         # title = f"{title}, null CLIP embedding"
         pass
     else:
-        title = f"{title}, with CLIP embedding"
-
-    title = f"{title}, with guidance scale {guidance_scale}"
+        title = f"{title}, with CLIP embedding, with guidance scale {guidance_scale}"
 
     plt.title(title)
 

@@ -365,7 +365,7 @@ class UNet(nn.Module):
 
         # Embed CLIP embeddings in timestep embeddings
         assert clip_emb.shape[-1] == self.clip_emb_dim
-        embedding += self.clip_emb_to_time_emb(clip_emb)
+        # embedding += self.clip_emb_to_time_emb(clip_emb)
 
         # Embed text tokens
         xf_proj, xf_out = self.embed_tokens(tokens)

@@ -80,7 +80,7 @@ classes = ('A plane', 'A car', 'a bird', 'a cat',
 
 def train(unet, dataloader, diffusion, clip=None):
     unet.to(device)
-    wandb.watch(unet, log="all", log_freq=10)
+    wandb.watch(unet, log="all", log_freq=50)
 
     optimizer = Adam(unet.parameters(), lr=LR)
 
@@ -102,8 +102,7 @@ def train(unet, dataloader, diffusion, clip=None):
 
             # obtain CLIP emmeddings
             if clip is not None:
-                clip_embedding = clip.encode_image(img)
-                # clip_embedding /= clip_embedding.norm(dim=1, keepdim=True)
+                clip_embedding = clip.encode_image(img, normalize=decoder_config["normalize_clip_embeddings"])
                 # mask = torch.rand(BATCH_SIZE) < NULL_CLIP_EMB_RATE
                 clip_embedding[mask] = NULL_CLIP_EMB
                 clip_embedding = clip_embedding.to(device=device)
@@ -122,10 +121,11 @@ def train(unet, dataloader, diffusion, clip=None):
             if step == 0:
                 print(f"Epoch {epoch} | step {step:03d} Loss: {loss.item()} ")
                 wandb.log({"loss": loss.item()})
-                if epoch < 20 or epoch % 3 == 0:
-                    sample_plot_image(unet, tokens[None, 0], clip_embedding[None, 0], diffusion, f"{epoch:03}(0)", caption=txt[0], guidance_scale=1.5)
-                    sample_plot_image(unet, tokens[None, 0], clip_embedding[None, 0], diffusion, f"{epoch:03}(1)", caption=txt[0], guidance_scale=2)
-                    sample_plot_image(unet, tokens[None, 1], clip_embedding[None, 1], diffusion, f"{epoch:03}(2)", caption=txt[1], guidance_scale=3)
+                if epoch < 10 or epoch % 10 == 0:
+                    sample_plot_image(unet, tokens[None, 0], clip_embedding[None, 0], diffusion, f"{epoch:03}(0)", caption=txt[0], guidance_scale=1)
+                    sample_plot_image(unet, tokens[None, 0], clip_embedding[None, 0], diffusion, f"{epoch:03}(1)", caption=txt[0], guidance_scale=1.5)
+                    sample_plot_image(unet, tokens[None, 0], clip_embedding[None, 0], diffusion, f"{epoch:03}(2)", caption=txt[0], guidance_scale=2)
+                    sample_plot_image(unet, tokens[None, 0], clip_embedding[None, 0], diffusion, f"{epoch:03}(3)", caption=txt[0], guidance_scale=3)
 
 
 # def get_loss(unet, x_0, t, tokens, diffusion, clip_emb=None):
@@ -245,3 +245,5 @@ if __name__ == "__main__":
     dataloader = DataLoader(train_data, batch_size=BATCH_SIZE, shuffle=True, drop_last=True)
 
     train(unet, dataloader, diffusion, clip=clip)
+
+    torch.save(unet.state_dict(), decoder_config["model_path"])

@@ -137,3 +137,5 @@ dmypy.json
 *.pth
 outputs/*
 cifar-10-batches-py/*
+wandb/*
+```

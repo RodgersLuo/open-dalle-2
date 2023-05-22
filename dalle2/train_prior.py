@@ -23,23 +23,22 @@ from model import CLIP
 
 with open('./model_config.yml', 'r') as file:
     config = yaml.safe_load(file)
-    decoder_config = config["Decoder"]
+    prior_config = config["Prior"]
 
 wandb.init(
     # set the wandb project where this run will be logged
     project="open-dalle-2-prior",
     # track hyperparameters and run metadata
     config=config,
-    mode="disabled"
+    # mode="disabled"
 )
 
-LR = 0.01
-EPOCHS = 100
-T = 200
-BATCH_SIZE = 512
-CONTEXT_LENGTH = 33
-IMG_SIZE = 32
-
+T = prior_config["diffusion_timesteps"]
+BATCH_SIZE = prior_config["batch_size"]
+IMG_SIZE = config["img_size"]
+EPOCHS = prior_config["epochs"]
+LR = prior_config["lr"]
+CONTEXT_LENGTH = prior_config["context_length"]
 
 device = "cuda" if torch.cuda.is_available() else "cpu"
 print(device)
@@ -84,7 +83,7 @@ def train(prior, train_dataloader, val_dataloader, diffusion, clip=None):
 
             if step == 0:
                 print(f"Epoch {epoch} | step {step:03d} Loss: {loss.item()} ")
-                wandb.log({"train_loss": loss.item()})
+                wandb.log({"train_loss": loss.item()}, commit=False)
 
                 if epoch % 10 == 0 or epoch == EPOCHS - 1:
                     validate(prior, val_dataloader, diffusion, full_sample=True)
@@ -106,7 +105,7 @@ def validate(prior, val_dataloader, diffusion, full_sample=False):
         text_embedding = text_embedding.to(device=device)
 
         if full_sample:
-            img_emb_pred = prior.sample(diffusion, T, text_embedding, tokens)
+            img_emb_pred = prior.sample(diffusion, text_embedding, tokens)
             loss = F.mse_loss(img_emb_pred, image_embedding).item()
             print(f"Full sample validation Loss: {loss}")
             wandb.log({"full_sampmle_val_loss": loss})
@@ -130,10 +129,10 @@ if __name__ == "__main__":
         dim=config["CLIP"]["embed_dim"],
         num_timesteps=T,
         max_text_len=CONTEXT_LENGTH,
-        depth=4,
-        dim_head=32,
-        heads=8,
-        ff_mult=4
+        depth=prior_config["depth"],
+        dim_head=prior_config["dim_per_head"],
+        heads=prior_config["heads"],
+        ff_mult=prior_config["ff_mult"],
     )
     param_size = 0
     for param in prior.parameters():
@@ -168,7 +167,7 @@ if __name__ == "__main__":
     for param in clip.parameters():
         param.requires_grad = False
 
-    train_data, val_data = load_data(img_size=IMG_SIZE, clip=clip, context_length=CONTEXT_LENGTH, normalize_clip_embeddings=True)
+    train_data, val_data = load_data(img_size=IMG_SIZE, clip=clip, context_length=CONTEXT_LENGTH, normalize_clip_embeddings=prior_config["normalize_clip_embeddings"])
     train_dataloader = DataLoader(train_data, batch_size=BATCH_SIZE, shuffle=True, drop_last=True)
     val_dataloader = DataLoader(val_data, batch_size=BATCH_SIZE, shuffle=True, drop_last=True)
 

@@ -10,6 +10,7 @@ import numpy as np
 from model import CLIP
 import os
 import yaml
+import wandb
 
 import sys
 sys.path.insert(0, "dataset")
@@ -20,6 +21,14 @@ from tokenizer import tokenize
 with open("./model_config.yml", "r") as file:
     config = yaml.safe_load(file)
     clip_config = config["CLIP"]
+
+wandb.init(
+    # set the wandb project where this run will be logged
+    project="open-dalle-2-clip",
+    # track hyperparameters and run metadata
+    config=config,
+    # mode="disabled"
+)
 
 # Hyperparameters
 IMG_SIZE = config["img_size"]
@@ -126,6 +135,7 @@ def check_accuracy(loader, model, captions, analysis=False):
         top5_acc = float(num_top5_correct) / num_samples
         print("Got %d / %d correct of val set, top 1 acc : %.2f, top 5 acc: %.2f"
                 % (num_top1_correct, num_samples, 100 * top1_acc, 100 * top5_acc))
+        wandb.log({"top1_acc": top1_acc * 100, "top5_acc": top5_acc * 100})
         # if analysis:
         #   print("check acc", type(stack_predicts), type(stack_labels))
         #   confusion(stack_predicts, stack_labels)
@@ -147,6 +157,9 @@ def train_part(model, optimizer, loader_train, loader_val, captions, epochs):
     print_every = 10
 
     model = model.to(device=device)  # move the model parameters to CPU/GPU
+
+    wandb.watch(model, log="all", log_freq=25)
+
     for e in range(epochs):
         for t, (x, y) in enumerate(loader_train):
             model.train()  # put model to training mode
@@ -171,6 +184,7 @@ def train_part(model, optimizer, loader_train, loader_val, captions, epochs):
 
             if t % print_every == 0:
                 print("Epoch: %d, Iteration %d, loss = %.4f" % (e, t, loss.item()))
+                wandb.log({"train_loss": loss.item()})
         check_accuracy(loader_val, model, captions)
 
 

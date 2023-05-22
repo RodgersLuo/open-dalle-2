@@ -46,6 +46,19 @@ Decoder:
   # UNet attention block
   qkv_heads: 8
 
+  normalize_clip_embeddings: True
+  model_path: "./models/decoder1.pth"
 
 Prior:
+  # Define hyperparameters
+  diffusion_timesteps: 100
+  batch_size: 256
+  epochs: 200
+  lr: 0.01
+  context_length: 33
+  normalize_clip_embeddings: True
 
+  depth: 8
+  dim_per_head: 64
+  heads: 16
+  ff_mult: 4

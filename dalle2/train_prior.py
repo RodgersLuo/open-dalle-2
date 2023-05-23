@@ -8,7 +8,7 @@ from tqdm import tqdm
 import yaml
 import wandb
 
-from diffusion import sample_timestep, Diffusion
+from diffusion import Diffusion
 from prior import DiffusionPriorNetwork
 
 import sys
@@ -82,8 +82,11 @@ def train(prior, train_dataloader, val_dataloader, diffusion, clip=None):
             optimizer.step()
 
             if step == 0:
-                print(f"Epoch {epoch} | step {step:03d} Loss: {loss.item()} ")
-                wandb.log({"train_loss": loss.item()}, commit=False)
+                baseline_sim = F.cosine_similarity(text_embedding, image_embedding, dim=-1).mean().item()
+                predicted_sim = F.cosine_similarity(text_embedding, img_emb_pred, dim=-1).mean().item()
+                random_sim = F.cosine_similarity(text_embedding[torch.randperm(BATCH_SIZE)], img_emb_pred, dim=-1).mean().item()
+                print(f"Epoch {epoch} | Loss: {loss.item()}, Baseline Sim: {baseline_sim}, Predicted Sim: {predicted_sim}, Random Sim: {random_sim}")
+                wandb.log({"train_loss": loss.item(), "baseline_sim": baseline_sim, "train_predicted_sim": predicted_sim, "random_sim": random_sim})
 
                 if epoch % 10 == 0 or epoch == EPOCHS - 1:
                     validate(prior, val_dataloader, diffusion, full_sample=True)
@@ -106,18 +109,20 @@ def validate(prior, val_dataloader, diffusion, full_sample=False):
 
         if full_sample:
             img_emb_pred = prior.sample(diffusion, text_embedding, tokens)
+            predicted_sim = F.cosine_similarity(text_embedding, img_emb_pred, dim=-1).mean().item()
             loss = F.mse_loss(img_emb_pred, image_embedding).item()
-            print(f"Full sample validation Loss: {loss}")
-            wandb.log({"full_sampmle_val_loss": loss})
+
+            print(f"Full sample validation Loss: {loss}, Predicted sim: {predicted_sim}")
+            wandb.log({"full_sampmle_val_loss": loss, "val_predicted_sim": predicted_sim})
         else:
             t = torch.randint(0, T, (BATCH_SIZE,), device=device).long()
 
             img_emb_noisy, noise = diffusion.forward_diffusion_sample(image_embedding, t, device)
             img_emb_pred = prior(img_emb_noisy, t, text_embed=text_embedding, text_encodings=tokens)
+            predicted_sim = F.cosine_similarity(text_embedding, img_emb_pred, dim=-1).mean().item()
             loss = F.mse_loss(img_emb_pred, image_embedding).item()
-            print(f"Validation Loss: {loss}")
-            wandb.log({"val_loss": loss})
-
+            print(f"Validation Loss: {loss}, Predicted sim: {predicted_sim}")
+            wandb.log({"val_loss": loss, "val_predicted_sim": predicted_sim})
 
 
 if __name__ == "__main__":
@@ -172,3 +177,4 @@ if __name__ == "__main__":
     val_dataloader = DataLoader(val_data, batch_size=BATCH_SIZE, shuffle=True, drop_last=True)
 
     train(prior, train_dataloader, val_dataloader, diffusion, clip=clip)
+    torch.save(prior.state_dict(), prior_config["model_path"])

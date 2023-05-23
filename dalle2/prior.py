@@ -431,7 +431,7 @@ class DiffusionPriorNetwork(nn.Module):
         pred_image_embed = tokens[..., -1, :]
 
         return pred_image_embed
-    
+
     @torch.no_grad()
     def sample(self, diffusion, text_emb, text_encodings):
         # Generate two image embeddings from the text embedding
@@ -441,10 +441,10 @@ class DiffusionPriorNetwork(nn.Module):
         img_emb1 = self.sample_one(diffusion, img_emb_noisy1, text_emb, text_encodings)
         img_emb2 = self.sample_one(diffusion, img_emb_noisy2, text_emb, text_encodings)
 
-        mask = torch.einsum("bd, bd->b", img_emb1, text_emb) > torch.einsum("bd, bd->b", img_emb2, text_emb)
+        mask = self.dot_product(img_emb1, text_emb) > self.dot_product(img_emb2, text_emb)
         mask = repeat(mask, 'b -> b d', d = self.dim)
         return torch.where(mask, img_emb1, img_emb2)
-        
+
 
     @torch.no_grad()
     def sample_one(self, diffusion, img_emb_noisy, text_emb, text_encodings):
@@ -461,4 +461,8 @@ class DiffusionPriorNetwork(nn.Module):
                 img_emb_noisy += torch.sqrt(posterior_variance_t) * torch.randn_like(img_emb_noisy)
 
         return img_emb_noisy
+
+    @staticmethod
+    def dot_product(a, b):
+        return torch.einsum("bd, bd->b", a, b)
 

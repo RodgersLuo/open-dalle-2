@@ -2,6 +2,7 @@ import torch
 from torch import nn
 import math
 from einops.layers.torch import Rearrange
+from diffusion import Diffusion
 
 import sys
 sys.path.insert(0, 'nn_components')
@@ -278,12 +279,14 @@ class UNet(nn.Module):
                  transformer_layers,
                  transformer_heads,
                  qkv_heads,
-                 n_clip_tokens=4
+                 n_clip_tokens=4,
+                 image_channels=3,
+                 out_dim=3
                  ):
         super().__init__()
-        image_channels = 3
+        self.image_channels = image_channels
         up_channels = down_channels[::-1]
-        out_dim = 3
+        self.out_dim = out_dim
         self.clip_emb_dim = clip_emb_dim
 
         # Time embedding
@@ -394,21 +397,31 @@ class UNet(nn.Module):
 class Decoder(nn.Module):
     def __init__(self,
                  unet,
+                 num_timesteps,
                  clip=None
                  ) -> None:
         super().__init__()
-        # self.clip = clip
-        # self.clip.eval()
-        # for param in self.clip.parameters():
-        #     param.requires_grad = False
-    
+        self.num_timesteps = num_timesteps
         self.unet = unet
 
     def forward(self, x, timestep, tokens, clip_emb):
+        assert timestep < self.num_timesteps
         return self.unet(x, timestep, tokens, clip_emb)
+    
+    @torch.no_grad()
+    def sample_one(self, image_dimensions, text_tokens, clip_emb, diffusion: Diffusion, cf_guidance_scale=None, stepsize=1):
+        device = self.device
+        image = torch.randn(1, *image_dimensions, device=device)
+
+        for i in range(0, self.num_timesteps, stepsize)[::-1]:
+            t = torch.full((1,), i, device=device, dtype=torch.long)
+            image = self.sample_timestep(image, t, text_tokens, clip_emb, diffusion, cf_guidance_scale=cf_guidance_scale)
+            image = torch.clamp(image, -1.0, 1.0)
+        return image
+
 
     @torch.no_grad()
-    def sample_timestep(self, x, t, tokens, clip_emb, diffusion, cf_guidance_scale=None):
+    def sample_timestep(self, x, t, tokens, clip_emb, diffusion: Diffusion, cf_guidance_scale=None):
         """
         Calls the model to predict the noise in the image and returns
         the denoised image.
@@ -417,6 +430,8 @@ class Decoder(nn.Module):
         assert len(x) == 1
         assert len(tokens) == 1
         assert len(clip_emb) == 1
+        assert t < self.num_timesteps
+        
         betas_t = diffusion.get_index_from_list(diffusion.betas, t, x.shape)
         sqrt_one_minus_alphas_cumprod_t = diffusion.get_index_from_list(
             diffusion.sqrt_one_minus_alphas_cumprod, t, x.shape
@@ -424,8 +439,10 @@ class Decoder(nn.Module):
         sqrt_recip_alphas_t = diffusion.get_index_from_list(diffusion.sqrt_recip_alphas, t, x.shape)
 
         if cf_guidance_scale is None:
+            # No classfier-free guidance
             noise = self(x, t, tokens=tokens, clip_emb=clip_emb)
         else:
+            # With classifier-free guidance
             null_token = torch.zeros_like(tokens, dtype=tokens.dtype, device=tokens.device)
             null_clip_emb = torch.zeros_like(clip_emb, dtype=clip_emb.dtype, device=clip_emb.device)
 
@@ -448,3 +465,8 @@ class Decoder(nn.Module):
             return model_mean
         else:
             return model_mean + torch.sqrt(posterior_variance_t) * torch.randn_like(x)
+
+
+    @property
+    def device(self):
+        return self.unet.positional_embedding.device

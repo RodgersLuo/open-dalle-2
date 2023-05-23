@@ -45,7 +45,7 @@ print(device)
 
 torch.cuda.empty_cache()
 
-def train(prior, train_dataloader, val_dataloader, diffusion, clip=None):
+def train(prior: DiffusionPriorNetwork, train_dataloader: DataLoader, val_dataloader: DataLoader, diffusion: Diffusion, clip: CLIP=None):
     prior.to(device)
     wandb.watch(prior, log="all", log_freq=10)
 
@@ -96,7 +96,7 @@ def train(prior, train_dataloader, val_dataloader, diffusion, clip=None):
         if epoch == EPOCHS - 1:
             a = 1
 
-def validate(prior, val_dataloader, diffusion, full_sample=False):
+def validate(prior: DiffusionPriorNetwork, val_dataloader: DataLoader, diffusion: Diffusion, full_sample=False):
     prior.eval()  # set model to evaluation mode
     with torch.no_grad():
         img, txt, image_embedding, text_embedding = next(iter(val_dataloader))

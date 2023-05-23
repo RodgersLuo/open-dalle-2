@@ -177,6 +177,8 @@ class CLIP(nn.Module):
 
         self.context_length = context_length
 
+        self.image_resolution = image_resolution
+
         if isinstance(vision_layers, (tuple, list)):
             vision_heads = vision_width * 32 // 64
             self.visual = ModifiedResNet(

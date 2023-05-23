@@ -78,7 +78,7 @@ timestr = datetime.datetime.now().strftime("%m-%d %H:%M:%S")
 classes = ('A plane', 'A car', 'a bird', 'a cat',
            'a deer', 'a dog', 'a frog', 'a horse', 'a ship', 'a truck')
 
-def train(decoder, dataloader, diffusion, clip=None):
+def train(decoder: Decoder, dataloader: DataLoader, diffusion: Diffusion, clip: CLIP=None):
     decoder.to(device)
     wandb.watch(decoder, log="all", log_freq=100)
 
@@ -135,7 +135,7 @@ def train(decoder, dataloader, diffusion, clip=None):
 
 
 @torch.no_grad()
-def sample_plot_image(decoder, tokens, clip_emb, diffusion, filename, guidance_scale=GUIDANCE_SCALE, **kwargs):
+def sample_plot_image(decoder: Decoder, tokens, clip_emb, diffusion: Diffusion, filename, guidance_scale=GUIDANCE_SCALE, **kwargs):
     # model.eval()
     assert tokens.shape == (1, CONTEXT_LENGTH)
     # Sample noise

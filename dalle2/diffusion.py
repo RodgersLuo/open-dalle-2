@@ -7,6 +7,8 @@ class Diffusion:
         return torch.linspace(start, end, timesteps)
 
     def __init__(self, T) -> None:
+        self.T = T
+        
         # Define beta schedule
         self.betas = self.linear_beta_schedule(timesteps=T)
 

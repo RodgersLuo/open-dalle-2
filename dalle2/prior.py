@@ -5,6 +5,8 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
+from dalle2.diffusion import Diffusion
+
 
 def exists(val):
     return val is not None
@@ -292,6 +294,7 @@ class CausalTransformer(nn.Module):
         out = self.norm(x)
         return self.project_out(out)
 
+
 class DiffusionPriorNetwork(nn.Module):
     def __init__(
         self,
@@ -433,7 +436,7 @@ class DiffusionPriorNetwork(nn.Module):
         return pred_image_embed
 
     @torch.no_grad()
-    def sample(self, diffusion, text_emb, text_encodings):
+    def sample(self, diffusion: Diffusion, text_emb, text_encodings):
         # Generate two image embeddings from the text embedding
         img_emb_noisy1 = torch.randn_like(text_emb)
         img_emb_noisy2 = torch.randn_like(text_emb)
@@ -447,19 +450,19 @@ class DiffusionPriorNetwork(nn.Module):
 
 
     @torch.no_grad()
-    def sample_one(self, diffusion, img_emb_noisy, text_emb, text_encodings):
+    def sample_one(self, diffusion: Diffusion, img_emb_noisy, text_emb, text_encodings):
         """
         Calls the model to predict the noise in the image and returns
         the denoised image.
         Applies noise to this image, if we are not in the last step yet.
         """
+        assert self.num_timesteps == diffusion.T
         for t in range(self.num_timesteps)[::-1]:
             ts = torch.full((len(text_emb),), t, dtype=torch.long, device=text_emb.device)
             img_emb_noisy = self(img_emb_noisy, ts, text_embed=text_emb, text_encodings=text_encodings)
             if t != 0:
                 posterior_variance_t = diffusion.get_index_from_list(diffusion.posterior_variance, ts, text_emb.shape)
                 img_emb_noisy += torch.sqrt(posterior_variance_t) * torch.randn_like(img_emb_noisy)
-
         return img_emb_noisy
 
     @staticmethod

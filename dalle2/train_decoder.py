@@ -10,8 +10,8 @@ import os
 import yaml
 import wandb
 
-from diffusion import sample_timestep, Diffusion
-from unet import UNet
+from diffusion import Diffusion
+from decoder import UNet, Decoder
 
 import sys
 sys.path.insert(0, 'dataset')
@@ -78,11 +78,11 @@ timestr = datetime.datetime.now().strftime("%m-%d %H:%M:%S")
 classes = ('A plane', 'A car', 'a bird', 'a cat',
            'a deer', 'a dog', 'a frog', 'a horse', 'a ship', 'a truck')
 
-def train(unet, dataloader, diffusion, clip=None):
-    unet.to(device)
-    wandb.watch(unet, log="all", log_freq=50)
+def train(decoder, dataloader, diffusion, clip=None):
+    decoder.to(device)
+    wandb.watch(decoder, log="all", log_freq=100)
 
-    optimizer = Adam(unet.parameters(), lr=LR)
+    optimizer = Adam(decoder.parameters(), lr=LR)
 
     for epoch in range(EPOCHS):
         for step, (img, txt) in enumerate(dataloader):
@@ -110,22 +110,22 @@ def train(unet, dataloader, diffusion, clip=None):
                 clip_embedding = NULL_CLIP_EMB
 
             x_noisy, noise = diffusion.forward_diffusion_sample(img, t, device)
-            noise_pred = unet(x_noisy, t, tokens=tokens, clip_emb=clip_embedding)
+            noise_pred = decoder(x_noisy, t, tokens=tokens, clip_emb=clip_embedding)
             loss = F.l1_loss(noise, noise_pred)
 
-            # loss = get_loss(unet, img, t, tokens, diffusion, clip_emb=clip_embedding)
+            # loss = get_loss(decoder, img, t, tokens, diffusion, clip_emb=clip_embedding)
             loss.backward()
-            torch.nn.utils.clip_grad.clip_grad_norm_(unet.parameters(), GRAD_CLIP)
+            torch.nn.utils.clip_grad.clip_grad_norm_(decoder.parameters(), GRAD_CLIP)
             optimizer.step()
 
             if step == 0:
                 print(f"Epoch {epoch} | step {step:03d} Loss: {loss.item()} ")
                 wandb.log({"loss": loss.item()})
                 if epoch < 10 or epoch % 10 == 0:
-                    sample_plot_image(unet, tokens[None, 0], clip_embedding[None, 0], diffusion, f"{epoch:03}(0)", caption=txt[0], guidance_scale=1)
-                    sample_plot_image(unet, tokens[None, 0], clip_embedding[None, 0], diffusion, f"{epoch:03}(1)", caption=txt[0], guidance_scale=1.5)
-                    sample_plot_image(unet, tokens[None, 0], clip_embedding[None, 0], diffusion, f"{epoch:03}(2)", caption=txt[0], guidance_scale=2)
-                    sample_plot_image(unet, tokens[None, 0], clip_embedding[None, 0], diffusion, f"{epoch:03}(3)", caption=txt[0], guidance_scale=3)
+                    sample_plot_image(decoder, tokens[None, 0], clip_embedding[None, 0], diffusion, f"{epoch:03}(0)", caption=txt[0], guidance_scale=1)
+                    sample_plot_image(decoder, tokens[None, 0], clip_embedding[None, 0], diffusion, f"{epoch:03}(1)", caption=txt[0], guidance_scale=1.5)
+                    sample_plot_image(decoder, tokens[None, 0], clip_embedding[None, 0], diffusion, f"{epoch:03}(2)", caption=txt[0], guidance_scale=2)
+                    sample_plot_image(decoder, tokens[None, 0], clip_embedding[None, 0], diffusion, f"{epoch:03}(3)", caption=txt[0], guidance_scale=3)
 
 
 # def get_loss(unet, x_0, t, tokens, diffusion, clip_emb=None):
@@ -135,7 +135,7 @@ def train(unet, dataloader, diffusion, clip=None):
 
 
 @torch.no_grad()
-def sample_plot_image(unet, tokens, clip_emb, diffusion, filename, guidance_scale=GUIDANCE_SCALE, **kwargs):
+def sample_plot_image(decoder, tokens, clip_emb, diffusion, filename, guidance_scale=GUIDANCE_SCALE, **kwargs):
     # model.eval()
     assert tokens.shape == (1, CONTEXT_LENGTH)
     # Sample noise
@@ -164,7 +164,7 @@ def sample_plot_image(unet, tokens, clip_emb, diffusion, filename, guidance_scal
 
     for i in range(0,T)[::-1]:
         t = torch.full((1,), i, device=device, dtype=torch.long)
-        img = sample_timestep(img, t, tokens, clip_emb, unet, diffusion, cf_guidance_scale=guidance_scale)
+        img = decoder.sample_timestep(img, t, tokens, clip_emb, diffusion, cf_guidance_scale=guidance_scale)
         # Edit: This is to maintain the natural range of the distribution
         img = torch.clamp(img, -1.0, 1.0)
         if i % stepsize == 0:
@@ -208,16 +208,20 @@ if __name__ == "__main__":
         qkv_heads=QKV_HEADS,
         clip_emb_dim=CLIP_EMB_DIM
     )
+
+    # Create decoder
+    decoder = Decoder(unet)
+
     param_size = 0
-    for param in unet.parameters():
+    for param in decoder.parameters():
         param_size += param.nelement() * param.element_size()
     buffer_size = 0
-    for buffer in unet.buffers():
+    for buffer in decoder.buffers():
         buffer_size += buffer.nelement() * buffer.element_size()
     size_all_mb = (param_size + buffer_size) / 1024**2
     print('model size: {:.3f}MB'.format(size_all_mb))
 
-    print("Num params: ", sum(p.numel() for p in unet.parameters()))
+    print("Num params: ", sum(p.numel() for p in decoder.parameters()))
 
     # Load pretrained CLIP model
     clip_config = config["CLIP"]
@@ -244,6 +248,6 @@ if __name__ == "__main__":
     train_data, _ = load_data(img_size=IMG_SIZE)
     dataloader = DataLoader(train_data, batch_size=BATCH_SIZE, shuffle=True, drop_last=True)
 
-    train(unet, dataloader, diffusion, clip=clip)
+    train(decoder, dataloader, diffusion, clip=clip)
 
-    torch.save(unet.state_dict(), decoder_config["model_path"])
+    torch.save(decoder.state_dict(), decoder_config["model_path"])

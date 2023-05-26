@@ -281,7 +281,8 @@ class UNet(nn.Module):
                  qkv_heads,
                  n_clip_tokens=4,
                  image_channels=3,
-                 out_dim=3
+                 out_dim=3,
+                 **kwargs
                  ):
         super().__init__()
         self.image_channels = image_channels
@@ -405,9 +406,9 @@ class Decoder(nn.Module):
         self.unet = unet
 
     def forward(self, x, timestep, tokens, clip_emb):
-        assert timestep < self.num_timesteps
+        assert (timestep < self.num_timesteps).all(), f"timestep must be less than num_timesteps ({self.num_timesteps})"
         return self.unet(x, timestep, tokens, clip_emb)
-    
+
     @torch.no_grad()
     def sample_one(self, image_dimensions, text_tokens, clip_emb, diffusion: Diffusion, cf_guidance_scale=None, stepsize=1):
         device = self.device
@@ -430,8 +431,8 @@ class Decoder(nn.Module):
         assert len(x) == 1
         assert len(tokens) == 1
         assert len(clip_emb) == 1
-        assert t < self.num_timesteps
-        
+        assert (t < self.num_timesteps).all(), f"timestep must be less than num_timesteps ({self.num_timesteps})"
+
         betas_t = diffusion.get_index_from_list(diffusion.betas, t, x.shape)
         sqrt_one_minus_alphas_cumprod_t = diffusion.get_index_from_list(
             diffusion.sqrt_one_minus_alphas_cumprod, t, x.shape

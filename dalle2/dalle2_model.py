@@ -2,9 +2,11 @@ import torch
 from torch import nn
 
 import sys
-from dalle2.decoder import Decoder
-from dalle2.diffusion import Diffusion
-from dalle2.prior import DiffusionPriorNetwork
+from decoder import Decoder
+from diffusion import Diffusion
+from prior import DiffusionPriorNetwork
+
+sys.path.insert(0, 'clip')
 from model import CLIP
 sys.path.insert(0, "nn_components")
 from tokenizer import tokenize
@@ -24,19 +26,19 @@ class DALLE2(nn.Module):
     def forward(self, image_dim, text, prior_diffusion: Diffusion, decoder_diffusion: Diffusion, cf_guidance_scale=None):
         text_tokens = tokenize(text, context_length=self.clip.context_length)
         text_tokens = text_tokens.to(device=self.device)
-        text_embedding = self.clip.encode_text(text_tokens, noralize=True)
+        text_embedding = self.clip.encode_text(text_tokens, normalize=True)
         image_embedding = self.prior.sample(prior_diffusion, text_embedding, text_encodings=text_tokens)
 
         return self.decoder.sample_one(image_dim,
                                         text_tokens,
-                                        clip_emb=image_embedding, 
-                                        diffusion=decoder_diffusion, 
+                                        clip_emb=image_embedding,
+                                        diffusion=decoder_diffusion,
                                         cf_guidance_scale=cf_guidance_scale)
 
     @property
     def device(self):
         return self.clip.positional_embedding.device
-        
+
     @staticmethod
     @torch.no_grad()
     def val_mode(module):

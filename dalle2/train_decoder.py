@@ -210,7 +210,7 @@ if __name__ == "__main__":
     )
 
     # Create decoder
-    decoder = Decoder(unet)
+    decoder = Decoder(unet, num_timesteps=T)
 
     param_size = 0
     for param in decoder.parameters():

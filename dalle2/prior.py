@@ -5,7 +5,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-from dalle2.diffusion import Diffusion
+from diffusion import Diffusion
 
 
 def exists(val):
@@ -372,6 +372,7 @@ class DiffusionPriorNetwork(nn.Module):
         text_encodings,
         self_cond = None,
     ):
+        assert (diffusion_timesteps < self.num_timesteps).all(), 'diffusion timesteps must be less than the total number of timesteps'
         batch, dim, device, dtype = *image_embed.shape, image_embed.device, image_embed.dtype
 
         num_time_embeds, num_image_embeds, num_text_embeds = self.num_time_embeds, self.num_image_embeds, self.num_text_embeds

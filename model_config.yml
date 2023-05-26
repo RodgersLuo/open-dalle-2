@@ -27,7 +27,7 @@ Decoder:
   epochs: 1500
   lr: 0.001
   # grad_clip: 0.005
-  grad_clip: 1
+  grad_clip: 2
   null_text_emb_rate: 0.2
   null_clip_emb_rate: 0.2
   guidance_scale: 3
@@ -47,7 +47,7 @@ Decoder:
   qkv_heads: 8
 
   normalize_clip_embeddings: True
-  model_path: "./models/decoder1.pth"
+  model_path: "./models/decoder2.pth"
 
 Prior:
   # Define hyperparameters

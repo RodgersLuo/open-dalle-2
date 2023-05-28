@@ -79,6 +79,7 @@ def load_data(img_size=32, root_dir="./data", clip=None, context_length=None, no
         transforms.Resize((img_size, img_size)),
         transforms.RandomHorizontalFlip(),
         transforms.ToTensor(), # Scales data into [0,1]
+        # transforms.RandomRotation(degrees=180, fill=128),
         transforms.Lambda(lambda t: (t * 2) - 1) # Scale between [-1, 1]
     ]
     data_transform = transforms.Compose(data_transforms)
@@ -94,10 +95,10 @@ def load_data(img_size=32, root_dir="./data", clip=None, context_length=None, no
                                         clip=clip,
                                         context_length=context_length,
                                         normalize_clip_embeddings=normalize_clip_embeddings)
-    test_dataset = ImageCaptionDataset(test_img_dir, 
-                                       test_table_dir, 
-                                       transform=data_transform, 
-                                       clip=clip, 
+    test_dataset = ImageCaptionDataset(test_img_dir,
+                                       test_table_dir,
+                                       transform=data_transform,
+                                       clip=clip,
                                        context_length=context_length,
                                        normalize_clip_embeddings=normalize_clip_embeddings)
 

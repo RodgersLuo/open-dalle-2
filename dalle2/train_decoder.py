@@ -85,7 +85,7 @@ def train(decoder: Decoder, dataloader: DataLoader, diffusion: Diffusion, clip: 
     optimizer = Adam(decoder.parameters(), lr=LR)
 
     for epoch in range(EPOCHS):
-        for step, (img, txt) in enumerate(dataloader):
+        for step, (img, txt, image_embedding, text_embedding) in enumerate(dataloader):
             # txt = [classes[i] for i in txt]
 
             # model.train()
@@ -102,7 +102,8 @@ def train(decoder: Decoder, dataloader: DataLoader, diffusion: Diffusion, clip: 
 
             # obtain CLIP emmeddings
             if clip is not None:
-                clip_embedding = clip.encode_image(img, normalize=decoder_config["normalize_clip_embeddings"])
+                clip_embedding = image_embedding
+                # clip_embedding = clip.encode_image(img, normalize=decoder_config["normalize_clip_embeddings"])
                 # mask = torch.rand(BATCH_SIZE) < NULL_CLIP_EMB_RATE
                 clip_embedding[mask] = NULL_CLIP_EMB
                 clip_embedding = clip_embedding.to(device=device)
@@ -115,7 +116,7 @@ def train(decoder: Decoder, dataloader: DataLoader, diffusion: Diffusion, clip: 
 
             # loss = get_loss(decoder, img, t, tokens, diffusion, clip_emb=clip_embedding)
             loss.backward()
-            torch.nn.utils.clip_grad.clip_grad_norm_(decoder.parameters(), GRAD_CLIP)
+            # torch.nn.utils.clip_grad.clip_grad_norm_(decoder.parameters(), GRAD_CLIP)
             optimizer.step()
 
             if step == 0:
@@ -245,7 +246,11 @@ if __name__ == "__main__":
     for param in clip.parameters():
         param.requires_grad = False
 
-    train_data, _ = load_data(img_size=IMG_SIZE, root_dir=config["data_path"])
+    train_data, _ = load_data(img_size=IMG_SIZE,
+                            root_dir=config["data_path"],
+                            clip=clip, context_length=CONTEXT_LENGTH, 
+                            normalize_clip_embeddings=decoder_config["normalize_clip_embeddings"])
+    
     dataloader = DataLoader(train_data, batch_size=BATCH_SIZE, shuffle=True, drop_last=True)
 
     train(decoder, dataloader, diffusion, clip=clip)

@@ -172,7 +172,7 @@ if __name__ == "__main__":
     for param in clip.parameters():
         param.requires_grad = False
 
-    train_data, val_data = load_data(img_size=IMG_SIZE, clip=clip, context_length=CONTEXT_LENGTH, normalize_clip_embeddings=prior_config["normalize_clip_embeddings"])
+    train_data, val_data = load_data(root_dir=config["data_path"], img_size=IMG_SIZE, clip=clip, context_length=CONTEXT_LENGTH, normalize_clip_embeddings=prior_config["normalize_clip_embeddings"])
     train_dataloader = DataLoader(train_data, batch_size=BATCH_SIZE, shuffle=True, drop_last=True)
     val_dataloader = DataLoader(val_data, batch_size=BATCH_SIZE, shuffle=True, drop_last=True)
 

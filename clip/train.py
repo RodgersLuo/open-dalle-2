@@ -68,7 +68,7 @@ def load_dataset(batch_size=BATCH_SIZE, root_dir="./data"):
     # train_dataset = ImageCaptionDataset(train_img_dir, train_table_dir, transform=transform)
     # test_dataset = ImageCaptionDataset(test_img_dir, test_table_dir, transform=transform)
 
-    train_dataset, test_dataset = load_data(img_size=IMG_SIZE)
+    train_dataset, test_dataset = load_data(img_size=IMG_SIZE, root_dir=config["data_path"])
 
     captions = train_dataset.captions.unique()
 

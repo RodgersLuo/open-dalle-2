@@ -1,10 +1,11 @@
 img_size: 32
+data_path: "./data"
 
 CLIP:
-  batch_size: 128
+  batch_size: 256
   epochs: 300
   lr: 5.0e-4
-  embed_dim: 6
+  embed_dim: 16
 
   # Image encoder
   vision_layers: [1, 1, 1, 1]
@@ -16,9 +17,9 @@ CLIP:
   vocab_size: 49408
   transformer_width: 64
   transformer_heads: 8
-  transformer_layers: 3
+  transformer_layers: 4
 
-  model_path: "./models/clip1.pth"
+  model_path: "./models/clip2.pth"
 
 Decoder:
   # Define hyperparameters
@@ -27,7 +28,7 @@ Decoder:
   epochs: 1500
   lr: 0.001
   # grad_clip: 0.005
-  grad_clip: 2
+  grad_clip: 3
   null_text_emb_rate: 0.2
   null_clip_emb_rate: 0.2
   guidance_scale: 3
@@ -63,4 +64,4 @@ Prior:
   heads: 16
   ff_mult: 4
 
-  model_path: "./models/prior1.pth"
+  model_path: "./models/prior2.pth"

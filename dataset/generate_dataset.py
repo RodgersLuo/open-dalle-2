@@ -356,7 +356,7 @@ class Polygon(Figure):
 
 if __name__ == "__main__":
     n_test = 2000
-    n_train = 15000
+    n_train = 10000
     train_excluded = [
         "gray",
         ("white", "rectangle"),
@@ -374,22 +374,26 @@ if __name__ == "__main__":
     train_dir = "./data/train"
     test_dir = "./data/test"
 
+    os.makedirs(train_dir + "/images")
+    os.makedirs(test_dir + "/images")
+
     size_drop_prob = 0.3
-    pos_drop_prob = 0.3
+    pos_drop_prob = 1
 
     captions, filenames = [], []
     for i in range(n_train):
         filename = f"train_{i}.png"
         drawing = Drawing((128, 128), background_color="gray", excluded=train_excluded)
-        if i < n_train / 4:
-            drawing.add_random_figures(1, min_length=20)
-        elif i < 2 * n_train / 4:
-            drawing.add_random_figures(2, min_length=20)
-        else:
-            drawing.add_random_figures(3, min_length=20)
+        # if i < n_train / 4:
+        #     drawing.add_random_figures(1, min_length=20)
+        # elif i < 2 * n_train / 4:
+        #     drawing.add_random_figures(2, min_length=20)
+        # else:
+        #     drawing.add_random_figures(3, min_length=20)
+        drawing.add_random_figures(2, min_length=20)
         captions.append(drawing.caption(size_drop_prob=size_drop_prob, pos_drop_prob=pos_drop_prob))
         filenames.append(filename)
-        drawing.save(os.path.join(train_dir, filename))
+        drawing.save(os.path.join(train_dir, "images", filename))
 
     train_df = pd.DataFrame({"caption": captions, "image": filenames})
     train_df.to_csv(train_dir + "/data.csv")
@@ -398,15 +402,16 @@ if __name__ == "__main__":
     for i in range(n_test):
         filename = f"test_{i}.png"
         drawing = Drawing((128, 128), background_color="gray", excluded=test_excluded)
-        if i < n_test / 4:
-            drawing.add_random_figures(1, min_length=20)
-        elif i < 2 * n_test / 4:
-            drawing.add_random_figures(2, min_length=20)
-        else:
-            drawing.add_random_figures(3, min_length=20)
+        # if i < n_test / 4:
+        #     drawing.add_random_figures(1, min_length=20)
+        # elif i < 2 * n_test / 4:
+        #     drawing.add_random_figures(2, min_length=20)
+        # else:
+        #     drawing.add_random_figures(3, min_length=20)
+        drawing.add_random_figures(2, min_length=20)
         captions.append(drawing.caption(size_drop_prob=size_drop_prob, pos_drop_prob=pos_drop_prob))
         filenames.append(filename)
-        drawing.save(os.path.join(test_dir, filename))
+        drawing.save(os.path.join(test_dir, "images", filename))
 
     test_df = pd.DataFrame({"caption": captions, "image": filenames})
     test_df.to_csv(test_dir + "/data.csv")

@@ -245,7 +245,7 @@ if __name__ == "__main__":
     for param in clip.parameters():
         param.requires_grad = False
 
-    train_data, _ = load_data(img_size=IMG_SIZE)
+    train_data, _ = load_data(img_size=IMG_SIZE, root_dir=config["data_path"])
     dataloader = DataLoader(train_data, batch_size=BATCH_SIZE, shuffle=True, drop_last=True)
 
     train(decoder, dataloader, diffusion, clip=clip)

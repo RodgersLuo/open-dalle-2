@@ -68,7 +68,7 @@ def load_dataset(batch_size=BATCH_SIZE, root_dir="./data"):
     # train_dataset = ImageCaptionDataset(train_img_dir, train_table_dir, transform=transform)
     # test_dataset = ImageCaptionDataset(test_img_dir, test_table_dir, transform=transform)
 
-    train_dataset, test_dataset = load_data(img_size=IMG_SIZE)
+    train_dataset, test_dataset = load_data(img_size=IMG_SIZE, root_dir=config["data_path"])
 
     captions = train_dataset.captions.unique()
 
@@ -79,9 +79,9 @@ def load_dataset(batch_size=BATCH_SIZE, root_dir="./data"):
     train_set, val_set = torch.utils.data.random_split(train_dataset, [n-n_val, n_val])
     print(len(train_set), len(val_set), len(test_dataset))
 
-    loader_train = DataLoader(train_set, batch_size=batch_size, shuffle=True, num_workers=2)
-    loader_val = DataLoader(val_set, batch_size=batch_size, shuffle=True, num_workers=2)
-    loader_test = DataLoader(test_dataset, batch_size=batch_size, shuffle=True, num_workers=2)
+    loader_train = DataLoader(train_set, batch_size=BATCH_SIZE, shuffle=True, num_workers=2, drop_last=True)
+    loader_val = DataLoader(val_set, batch_size=BATCH_SIZE, shuffle=True, num_workers=2, drop_last=True)
+    loader_test = DataLoader(test_dataset, batch_size=BATCH_SIZE, shuffle=True, num_workers=2, drop_last=True)
 
     return loader_train, loader_val, loader_test, captions
 
@@ -98,7 +98,10 @@ def check_accuracy(loader, model, captions, analysis=False):
             x = x.to(device=device, dtype=dtype)  # move to device
             # y = tokenize(list(y), context_length=model.context_length).to(device=device)
             y = np.array(list(y))
+            captions = y
+            # captions_tk = tokenize(y, context_length=model.context_length).to(device=device)
             captions_tk = tokenize(captions, context_length=model.context_length).to(device=device)
+
             # ims, txt = model(x, y)
             # ground_truth = torch.arange(len(ims)).long().to(ims.device)
             # loss = (F.cross_entropy(ims, ground_truth) + F.cross_entropy(ims.t(), ground_truth)).div(2)
@@ -106,6 +109,9 @@ def check_accuracy(loader, model, captions, analysis=False):
             image_features = model.encode_image(x)
             text_features = model.encode_text(captions_tk)
             similarity = (100.0 * image_features @ text_features.T).softmax(dim=1)
+
+            baseline_sim = F.cosine_similarity(text_features, image_features, dim=-1).mean().item()
+            random_sim = F.cosine_similarity(text_features[torch.randperm(BATCH_SIZE)], image_features, dim=-1).mean().item()
 
             top1_value, top1_index = similarity.topk(1, dim=1)
             top5_values, top5_indices = similarity.topk(5, dim=1)
@@ -133,9 +139,11 @@ def check_accuracy(loader, model, captions, analysis=False):
             #   stack_predicts = torch.cat([stack_predicts, preds], 0)
         top1_acc = float(num_top1_correct) / num_samples
         top5_acc = float(num_top5_correct) / num_samples
-        print("Got %d / %d correct of val set, top 1 acc : %.2f, top 5 acc: %.2f"
+        print("Got %d / %d correct of val set, top 1 acc : %.2f, top 5 acc: %.2f."
                 % (num_top1_correct, num_samples, 100 * top1_acc, 100 * top5_acc))
+        print(f"    Baseline similarity {baseline_sim:.3f}, random similarity {random_sim:.3f}")
         wandb.log({"top1_acc": top1_acc * 100, "top5_acc": top5_acc * 100})
+        wandb.log({"baseline_sim": baseline_sim, "random_sim": random_sim})
         # if analysis:
         #   print("check acc", type(stack_predicts), type(stack_labels))
         #   confusion(stack_predicts, stack_labels)
@@ -189,7 +197,7 @@ def train_part(model, optimizer, loader_train, loader_val, captions, epochs):
 
 
 if __name__ == "__main__":
-    loader_train, loader_test, loader_test, captions = load_dataset()
+    loader_train, loader_val, loader_test, captions = load_dataset()
 
     model = CLIP(
         embed_dim=clip_config["embed_dim"],
@@ -222,7 +230,7 @@ if __name__ == "__main__":
     params = sum(p.numel() for p in model.parameters() if p.requires_grad)
     print("Total number of parameters is: {}".format(params))
 
-    train_part(model, optimizer, loader_train, loader_test, captions, epochs = EPOCHS)
+    train_part(model, optimizer, loader_train, loader_val, captions, epochs = EPOCHS)
     check_accuracy(loader_test, model, captions=captions)
     # torch.save(model.state_dict(), "./models/clip.pt")
     torch.save(model.state_dict(), clip_config["model_path"])

@@ -18,9 +18,7 @@ class DALLE2(nn.Module):
         self.clip = clip
         self.prior = prior
         self.decoder = decoder
-        self.val_mode(self.clip)
-        self.val_mode(self.prior)
-        self.val_mode(self.decoder)
+        self.val_mode()
 
     @torch.no_grad()
     def forward(self, image_dim, text, prior_diffusion: Diffusion, decoder_diffusion: Diffusion, cf_guidance_scale=None):
@@ -39,9 +37,12 @@ class DALLE2(nn.Module):
     def device(self):
         return self.clip.positional_embedding.device
 
-    @staticmethod
     @torch.no_grad()
-    def val_mode(module):
-        module.eval()
-        for param in module.parameters():
+    def val_mode(self):
+        self.clip.eval()
+        for param in self.clip.parameters():
+            param.requires_grad = False
+
+        self.prior.eval()
+        for param in self.prior.parameters():
             param.requires_grad = False

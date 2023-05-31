@@ -14,16 +14,16 @@ from diffusion import Diffusion
 from decoder import UNet, Decoder
 
 import sys
-sys.path.insert(0, 'dataset')
+sys.path.insert(0, "dataset")
 from dataset import load_data
 
-sys.path.insert(0, 'nn_components')
+sys.path.insert(0, "nn_components")
 from tokenizer import tokenize
 
-sys.path.insert(0, 'clip')
+sys.path.insert(0, "clip")
 from model import CLIP
 
-with open('./model_config.yml', 'r') as file:
+with open("./model_config.yml", "r") as file:
     config = yaml.safe_load(file)
     decoder_config = config["Decoder"]
 
@@ -31,7 +31,8 @@ wandb.init(
     # set the wandb project where this run will be logged
     project="open-dalle-2",
     # track hyperparameters and run metadata
-    config=config
+    config=config,
+    mode="disabled"
 )
 
 # Define hyperparameters
@@ -75,8 +76,8 @@ torch.cuda.empty_cache()
 
 timestr = datetime.datetime.now().strftime("%m-%d %H:%M:%S")
 
-classes = ('A plane', 'A car', 'a bird', 'a cat',
-           'a deer', 'a dog', 'a frog', 'a horse', 'a ship', 'a truck')
+classes = ("A plane", "A car", "a bird", "a cat",
+           "a deer", "a dog", "a frog", "a horse", "a ship", "a truck")
 
 def train(decoder: Decoder, dataloader: DataLoader, diffusion: Diffusion, clip: CLIP=None):
     decoder.to(device)
@@ -127,12 +128,19 @@ def train(decoder: Decoder, dataloader: DataLoader, diffusion: Diffusion, clip: 
                     sample_plot_image(decoder, tokens[None, 0], clip_embedding[None, 0], diffusion, f"{epoch:03}(1)", caption=txt[0], guidance_scale=1.5)
                     sample_plot_image(decoder, tokens[None, 0], clip_embedding[None, 0], diffusion, f"{epoch:03}(2)", caption=txt[0], guidance_scale=2)
                     sample_plot_image(decoder, tokens[None, 0], clip_embedding[None, 0], diffusion, f"{epoch:03}(3)", caption=txt[0], guidance_scale=3)
+        if epoch % 100 == 0:
+            save_checkpoint(decoder, optimizer)
+    save_checkpoint(decoder, optimizer)
 
 
-# def get_loss(unet, x_0, t, tokens, diffusion, clip_emb=None):
-#     x_noisy, noise = diffusion.forward_diffusion_sample(x_0, t, device)
-#     noise_pred = unet(x_noisy, t, tokens, clip_emb=clip_emb)
-#     return F.l1_loss(noise, noise_pred)
+def save_checkpoint(model, optimizer):
+    print("=> Saving checkpoint")
+    state = {
+        "model": model.state_dict(),
+        "optimizer": optimizer.state_dict(),
+        "config": config,
+    }
+    torch.save(state, decoder_config["model_path"])
 
 
 @torch.no_grad()
@@ -142,7 +150,7 @@ def sample_plot_image(decoder: Decoder, tokens, clip_emb, diffusion: Diffusion, 
     # Sample noise
     img = torch.randn((1, 3, IMG_SIZE, IMG_SIZE), device=device)
     fig = plt.figure(figsize=(15,6))
-    plt.axis('off')
+    plt.axis("off")
 
     num_images = 10
     stepsize = int(T/num_images)
@@ -220,7 +228,7 @@ if __name__ == "__main__":
     for buffer in decoder.buffers():
         buffer_size += buffer.nelement() * buffer.element_size()
     size_all_mb = (param_size + buffer_size) / 1024**2
-    print('model size: {:.3f}MB'.format(size_all_mb))
+    print("model size: {:.3f}MB".format(size_all_mb))
 
     print("Num params: ", sum(p.numel() for p in decoder.parameters()))
 
@@ -239,7 +247,8 @@ if __name__ == "__main__":
         transformer_layers=clip_config["transformer_layers"]
     )
     clip.to(device="cpu")
-    clip.load_state_dict(torch.load(clip_config["model_path"]))
+    clip_state = torch.load(clip_config["model_path"])
+    clip.load_state_dict(clip_state["model"])
 
     # Freeze CLIP model
     clip.eval()
@@ -248,11 +257,9 @@ if __name__ == "__main__":
 
     train_data, _ = load_data(img_size=IMG_SIZE,
                             root_dir=config["data_path"],
-                            clip=clip, context_length=CONTEXT_LENGTH, 
+                            clip=clip, context_length=CONTEXT_LENGTH,
                             normalize_clip_embeddings=decoder_config["normalize_clip_embeddings"])
-    
+
     dataloader = DataLoader(train_data, batch_size=BATCH_SIZE, shuffle=True, drop_last=True)
 
     train(decoder, dataloader, diffusion, clip=clip)
-
-    torch.save(decoder.state_dict(), decoder_config["model_path"])

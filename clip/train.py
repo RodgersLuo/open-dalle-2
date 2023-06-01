@@ -106,6 +106,11 @@ def check_accuracy(loader, model, captions, analysis=False):
             # ground_truth = torch.arange(len(ims)).long().to(ims.device)
             # loss = (F.cross_entropy(ims, ground_truth) + F.cross_entropy(ims.t(), ground_truth)).div(2)
 
+            ims, txt = model(x, captions_tk)
+
+            ground_truth = torch.arange(len(ims)).long().to(ims.device)
+            loss = (F.cross_entropy(ims, ground_truth) + F.cross_entropy(ims.t(), ground_truth)).div(2)
+
             image_features = model.encode_image(x)
             text_features = model.encode_text(captions_tk)
             similarity = (100.0 * image_features @ text_features.T).softmax(dim=1)
@@ -139,10 +144,10 @@ def check_accuracy(loader, model, captions, analysis=False):
             #   stack_predicts = torch.cat([stack_predicts, preds], 0)
         top1_acc = float(num_top1_correct) / num_samples
         top5_acc = float(num_top5_correct) / num_samples
-        print("Got %d / %d correct of val set, top 1 acc : %.2f, top 5 acc: %.2f."
-                % (num_top1_correct, num_samples, 100 * top1_acc, 100 * top5_acc))
+        print("Got %d / %d correct of val set, top 1 acc : %.2f, top 5 acc: %.2f, val loss: %.2f"
+                % (num_top1_correct, num_samples, 100 * top1_acc, 100 * top5_acc, loss.item()))
         print(f"    Baseline similarity {baseline_sim:.3f}, random similarity {random_sim:.3f}")
-        wandb.log({"top1_acc": top1_acc * 100, "top5_acc": top5_acc * 100})
+        wandb.log({"top1_acc": top1_acc * 100, "top5_acc": top5_acc * 100, "val_loss": loss.item()})
         wandb.log({"baseline_sim": baseline_sim, "random_sim": random_sim})
         # if analysis:
         #   print("check acc", type(stack_predicts), type(stack_labels))
@@ -232,6 +237,10 @@ if __name__ == "__main__":
 
     train_part(model, optimizer, loader_train, loader_val, captions, epochs = EPOCHS)
     check_accuracy(loader_test, model, captions=captions)
-    # torch.save(model.state_dict(), "./models/clip.pt")
-    torch.save(model.state_dict(), clip_config["model_path"])
+
+    state = {
+        "model": model.state_dict(),
+        "config": config,
+    }
+    torch.save(state, clip_config["model_path"])
 

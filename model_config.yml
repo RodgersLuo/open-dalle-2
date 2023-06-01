@@ -3,23 +3,23 @@ data_path: "./data"
 
 CLIP:
   batch_size: 256
-  epochs: 300
-  lr: 5.0e-4
-  embed_dim: 16
+  epochs: 50
+  lr: 3.0e-4
+  embed_dim: 256
 
   # Image encoder
-  vision_layers: [1, 1, 1, 1]
-  vision_width: 32
+  vision_layers: [1, 2, 2, 2]
+  vision_width: 16
   vision_patch_size: null
 
   # Text encoder
   context_length: 33
   vocab_size: 49408
   transformer_width: 64
-  transformer_heads: 8
-  transformer_layers: 4
+  transformer_heads: 16
+  transformer_layers: 8
 
-  model_path: "./models/clip2.pth"
+  model_path: "./models/clip3.pth"
 
 Decoder:
   # Define hyperparameters
@@ -48,7 +48,7 @@ Decoder:
   qkv_heads: 8
 
   normalize_clip_embeddings: True
-  model_path: "./models/decoder2.pth"
+  model_path: "./models/decoder3.pth"
 
 Prior:
   # Define hyperparameters
@@ -64,4 +64,4 @@ Prior:
   heads: 16
   ff_mult: 4
 
-  model_path: "./models/prior2.pth"
+  model_path: "./models/prior3.pth"

@@ -356,7 +356,7 @@ class Polygon(Figure):
 
 if __name__ == "__main__":
     n_test = 2000
-    n_train = 10000
+    n_train = 20000
     train_excluded = [
         "gray",
         ("white", "rectangle"),
@@ -395,6 +395,9 @@ if __name__ == "__main__":
         filenames.append(filename)
         drawing.save(os.path.join(train_dir, "images", filename))
 
+        if i % 1000 == 0:
+            print(f"Generated {i} images")
+
     train_df = pd.DataFrame({"caption": captions, "image": filenames})
     train_df.to_csv(train_dir + "/data.csv")
 
@@ -412,6 +415,9 @@ if __name__ == "__main__":
         captions.append(drawing.caption(size_drop_prob=size_drop_prob, pos_drop_prob=pos_drop_prob))
         filenames.append(filename)
         drawing.save(os.path.join(test_dir, "images", filename))
+
+        if i % 1000 == 0:
+            print(f"Generated {i} images")
 
     test_df = pd.DataFrame({"caption": captions, "image": filenames})
     test_df.to_csv(test_dir + "/data.csv")

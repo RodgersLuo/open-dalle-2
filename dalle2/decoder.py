@@ -100,9 +100,6 @@ class ResidualBlock(nn.Module):
                 normalization(out_ch)
         )
 
-    # def forward(self, x, t):
-    #     return checkpoint(self._forward, (x, t), self.parameters(), True)
-
     def forward(self, x, t):
         # First Conv
         h = self.conv1(x)
@@ -315,6 +312,9 @@ class UNet(nn.Module):
                 transformer_width,
                 transformer_layers,
                 transformer_heads,
+                vocab_size=n_vocab,
+                context_length=context_length,
+                attn_mask=None
         )
         self.final_ln = nn.LayerNorm(transformer_width)
         self.token_embedding = nn.Embedding(n_vocab, transformer_width)
@@ -355,10 +355,11 @@ class UNet(nn.Module):
         """
         assert tokens is not None
 
-        xf_in = self.token_embedding(tokens.long())
-        xf_in = xf_in + self.positional_embedding[None]
-        xf_out = self.transformer(xf_in)
-        xf_out = self.final_ln(xf_out)
+        # xf_in = self.token_embedding(tokens.long())
+        # xf_in = xf_in + self.positional_embedding[None]
+        # xf_out = self.transformer(xf_in)
+        # xf_out = self.final_ln(xf_out)
+        xf_out = self.transformer(tokens)
         xf_proj = self.transformer_proj(xf_out[:, -1])
         xf_out = xf_out.permute(0, 2, 1)  # NLC -> NCL
         return (xf_proj, xf_out)

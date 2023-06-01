@@ -2,45 +2,62 @@ from collections import OrderedDict
 
 import torch
 from torch import nn
+from einops import rearrange
 
 
-class QuickGELU(nn.Module):
+class GELU(nn.Module):
     def forward(self, x: torch.Tensor):
         return x * torch.sigmoid(1.702 * x)
 
 
 class ResidualAttentionBlock(nn.Module):
-    def __init__(self, d_model: int, n_head: int, attn_mask: torch.Tensor = None):
+    def __init__(self, d_model, n_head, attn_mask = None):
         super().__init__()
 
         self.attn = nn.MultiheadAttention(d_model, n_head)
         self.ln_1 = nn.LayerNorm(d_model)
-        self.mlp = nn.Sequential(OrderedDict([
-            ("c_fc", nn.Linear(d_model, d_model * 4)),
-            ("gelu", QuickGELU()),
-            ("c_proj", nn.Linear(d_model * 4, d_model))
-        ]))
+        self.feedforward = nn.Sequential(
+            nn.Linear(d_model, d_model * 2),
+            GELU(),
+            nn.Linear(d_model * 2, d_model)
+        )
         self.ln_2 = nn.LayerNorm(d_model)
         self.attn_mask = attn_mask
 
-    def attention(self, x: torch.Tensor):
+    def forward(self, x: torch.Tensor):
+        # Multi-head attention
+        h = self.ln_1(x)
         if self.attn_mask is not None:
             self.attn_mask = self.attn_mask.to(dtype=x.dtype, device=x.device)
-        return self.attn(x, x, x, need_weights=False, attn_mask=self.attn_mask)[0]
+        h = self.attn(x, x, x, need_weights=False, attn_mask=self.attn_mask)[0]
 
-    def forward(self, x: torch.Tensor):
-        x = x + self.attention(self.ln_1(x))
-        x = x + self.mlp(self.ln_2(x))
+        # Residual connection 1
+        x = x + h
+
+        # Norm and Feedforward network
+        h = self.feedforward(self.ln_2(x))
+        # Residual connection 2
+        x = x + h
         return x
 
 
 class Transformer(nn.Module):
-    def __init__(self, width: int, layers: int, heads: int, attn_mask: torch.Tensor = None):
+    def __init__(self, width: int, layers: int, heads: int, vocab_size: int, context_length: int, attn_mask: torch.Tensor = None):
         super().__init__()
         self.width = width
         self.layers = layers
         self.resblocks = nn.Sequential(*[ResidualAttentionBlock(width, heads, attn_mask) for _ in range(layers)])
 
+        self.vocab_size = vocab_size
+        self.token_embedding = nn.Embedding(vocab_size, width)
+        self.positional_embedding = nn.Parameter(torch.randn(context_length, width))
+        self.ln_final = nn.LayerNorm(width)
+
     def forward(self, x: torch.Tensor):
+        x = self.token_embedding(x)
+        x = x + self.positional_embedding
+        x = rearrange(x, 'b n d -> n b d')
         x = self.resblocks(x)
+        x = rearrange(x, 'n b d -> b n d')
+        x = self.ln_final(x)
         return x

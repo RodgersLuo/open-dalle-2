@@ -1,19 +1,35 @@
+import math
 import torch
 import torch.nn.functional as F
 
 class Diffusion:
     @staticmethod
-    def linear_beta_schedule(timesteps, start=0.0001, end=0.02):
-        return torch.linspace(start, end, timesteps)
+    def linear_beta_schedule(T, start=0.0001, end=0.01):
+        return torch.linspace(start, end, T)
 
-    def __init__(self, T) -> None:
+    @staticmethod
+    def cosine_beta_schedule(T, max_beta=0.999):
+        def cosine_cum_func(t):
+            return math.cos((t + 0.008) / 1.008 * math.pi / 2) ** 2
+        betas = []
+        for i in range(T):
+            t1 = i / T
+            t2 = (i + 1) / T
+            beta = 1 - cosine_cum_func(t2) / cosine_cum_func(t1)
+            betas.append(min(beta, max_beta))
+        return torch.Tensor(betas)
+
+    def __init__(self, T, schedule="linear") -> None:
         self.T = T
-        
-        # Define beta schedule
-        self.betas = self.linear_beta_schedule(timesteps=T)
 
-        # Pre-calculate different terms for closed form
+        # Define beta schedule
+        if schedule == "linear":
+            self.betas = self.linear_beta_schedule(T=T)
+        elif schedule == "cosine":
+            self.betas = self.cosine_beta_schedule(T=T)
+
         self.alphas = 1. - self.betas
+
         self.alphas_cumprod = torch.cumprod(self.alphas, axis=0)
         self.alphas_cumprod_prev = F.pad(self.alphas_cumprod[:-1], (1, 0), value=1.0)
         self.sqrt_recip_alphas = torch.sqrt(1.0 / self.alphas)
@@ -33,8 +49,11 @@ class Diffusion:
 
     def forward_diffusion_sample(self, x_0, t, device="cpu"):
         """
-        Takes an image and a timestep as input and
-        returns the noisy version of it
+        Samples from the diffusion process at a specific time step t.
+        :param x_0: the initial data
+        :param t: the time step to sample from
+        :param device: the device to use
+        :return: the sampled data and the noise
         """
         noise = torch.randn_like(x_0).to(device)
         sqrt_alphas_cumprod_t = self.get_index_from_list(self.sqrt_alphas_cumprod, t, x_0.shape)
@@ -45,47 +64,3 @@ class Diffusion:
         return sqrt_alphas_cumprod_t.to(device) * x_0.to(device) \
         + sqrt_one_minus_alphas_cumprod_t.to(device) * noise, noise
 
-
-@torch.no_grad()
-def sample_timestep(x, t, tokens, clip_emb, model, diffusion, cf_guidance_scale=None):
-    pass
-    # """
-    # Calls the model to predict the noise in the image and returns
-    # the denoised image.
-    # Applies noise to this image, if we are not in the last step yet.
-    # """
-    # assert len(x) == 1
-    # assert len(tokens) == 1
-    # assert len(clip_emb) == 1
-    # betas_t = diffusion.get_index_from_list(diffusion.betas, t, x.shape)
-    # sqrt_one_minus_alphas_cumprod_t = diffusion.get_index_from_list(
-    #     diffusion.sqrt_one_minus_alphas_cumprod, t, x.shape
-    # )
-    # sqrt_recip_alphas_t = diffusion.get_index_from_list(diffusion.sqrt_recip_alphas, t, x.shape)
-
-    # if cf_guidance_scale is None:
-    #     noise = model(x, t, tokens=tokens, clip_emb=clip_emb)
-    # else:
-    #     null_token = torch.zeros_like(tokens, dtype=tokens.dtype, device=tokens.device)
-    #     null_clip_emb = torch.zeros_like(clip_emb, dtype=clip_emb.dtype, device=clip_emb.device)
-
-    #     # The predicted noise with conditioning
-    #     noise_label = model(x, t, tokens=tokens, clip_emb=clip_emb)
-
-    #     # The predicted noise without conditioning
-    #     noise = model(x, t, tokens=null_token, clip_emb=null_clip_emb)
-    #     delta = cf_guidance_scale * (noise_label - noise)
-    #     # delta[torch.all(tokens==null_token[0], dim=1)] = torch.zeros_like(noise[0], dtype=noise.dtype)
-    #     noise = noise + delta
-
-    # # Call model (current image - noise prediction)
-    # model_mean = sqrt_recip_alphas_t * (
-    #     x - betas_t * noise / sqrt_one_minus_alphas_cumprod_t
-    # )
-    # posterior_variance_t = diffusion.get_index_from_list(diffusion.posterior_variance, t, x.shape)
-
-    # if t == 0:
-    #     # The t's are offset from the t's in the paper
-    #     return model_mean
-    # else:
-    #     return model_mean + torch.sqrt(posterior_variance_t) * torch.randn_like(x)

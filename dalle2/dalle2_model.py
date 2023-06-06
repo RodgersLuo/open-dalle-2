@@ -4,7 +4,7 @@ from torch import nn
 import sys
 from decoder import Decoder
 from diffusion import Diffusion
-from prior import DiffusionPriorNetwork
+from prior import Prior
 
 sys.path.insert(0, 'clip')
 from model import CLIP
@@ -13,7 +13,7 @@ from tokenizer import tokenize
 
 
 class DALLE2(nn.Module):
-    def __init__(self, clip: CLIP, prior: DiffusionPriorNetwork, decoder: Decoder) -> None:
+    def __init__(self, clip: CLIP, prior: Prior, decoder: Decoder) -> None:
         super().__init__()
         self.clip = clip
         self.prior = prior
@@ -24,8 +24,8 @@ class DALLE2(nn.Module):
     def forward(self, image_dim, text, prior_diffusion: Diffusion, decoder_diffusion: Diffusion, cf_guidance_scale=None):
         text_tokens = tokenize(text, context_length=self.clip.context_length)
         text_tokens = text_tokens.to(device=self.device)
-        text_embedding = self.clip.encode_text(text_tokens, normalize=True)
-        image_embedding = self.prior.sample(prior_diffusion, text_embedding, text_encodings=text_tokens)
+        text_embedding, text_encodings = self.clip.encode_text(text_tokens, normalize=True, return_encodings=True)
+        image_embedding = self.prior.sample(prior_diffusion, text_embedding, text_encodings=text_encodings)
 
         return self.decoder.sample_one(image_dim,
                                         text_tokens,
@@ -35,7 +35,7 @@ class DALLE2(nn.Module):
 
     @property
     def device(self):
-        return self.clip.positional_embedding.device
+        return self.prior.learned_query.device
 
     @torch.no_grad()
     def val_mode(self):

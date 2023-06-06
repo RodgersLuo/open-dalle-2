@@ -24,13 +24,14 @@ CLIP:
 Decoder:
   # Define hyperparameters
   diffusion_timesteps: 300
+  noise_schedule: "cosine"
   batch_size: 64
   epochs: 1500
   lr: 0.001
   # grad_clip: 0.005
-  grad_clip: 3
-  null_text_emb_rate: 0.2
-  null_clip_emb_rate: 0.2
+  grad_clip: 1
+  null_text_emb_rate: 0.5
+  null_clip_emb_rate: 0.1
   guidance_scale: 3
 
   # UNet
@@ -41,27 +42,27 @@ Decoder:
   n_vocab: 49408
   context_length: 33
   transformer_width: 64
-  transformer_layers: 3
+  transformer_layers: 6
   transformer_heads: 8
 
   # UNet attention block
   qkv_heads: 8
 
   normalize_clip_embeddings: True
-  model_path: "./models/decoder3.pth"
+  model_path: "./models/decoder3_cosine.pth"
 
 Prior:
   # Define hyperparameters
   diffusion_timesteps: 200
+  noise_schedule: "cosine"
   batch_size: 256
   epochs: 100
   lr: 0.01
-  context_length: 33
   normalize_clip_embeddings: True
 
-  depth: 8
-  dim_per_head: 64
-  heads: 16
-  ff_mult: 4
+  xf_layers: 8
+  # dim_per_head: 64
+  xf_heads: 16
+  # ff_mult: 4
 
-  model_path: "./models/prior3.pth"
+  model_path: "./models/prior3_cosine.pth"

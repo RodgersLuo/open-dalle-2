@@ -16,7 +16,7 @@ class ResidualAttentionBlock(nn.Module):
 
         self.attn = nn.MultiheadAttention(d_model, n_head)
         self.ln_1 = nn.LayerNorm(d_model)
-        self.feedforward = nn.Sequential(
+        self.mlp = nn.Sequential(
             nn.Linear(d_model, d_model * 2),
             GELU(),
             nn.Linear(d_model * 2, d_model)
@@ -28,14 +28,14 @@ class ResidualAttentionBlock(nn.Module):
         # Multi-head attention
         h = self.ln_1(x)
         if self.attn_mask is not None:
-            self.attn_mask = self.attn_mask.to(dtype=x.dtype, device=x.device)
-        h = self.attn(x, x, x, need_weights=False, attn_mask=self.attn_mask)[0]
+            self.attn_mask = self.attn_mask.to(dtype=h.dtype, device=h.device)
+        h = self.attn(h, h, h, need_weights=False, attn_mask=self.attn_mask)[0]
 
         # Residual connection 1
         x = x + h
 
         # Norm and Feedforward network
-        h = self.feedforward(self.ln_2(x))
+        h = self.mlp(self.ln_2(x))
         # Residual connection 2
         x = x + h
         return x
@@ -48,13 +48,18 @@ class Transformer(nn.Module):
         self.layers = layers
         self.resblocks = nn.Sequential(*[ResidualAttentionBlock(width, heads, attn_mask) for _ in range(layers)])
 
-        self.vocab_size = vocab_size
-        self.token_embedding = nn.Embedding(vocab_size, width)
+        self.token_embedding = None
+        if vocab_size is not None:
+            self.vocab_size = vocab_size
+            self.token_embedding = nn.Embedding(vocab_size, width)
+
         self.positional_embedding = nn.Parameter(torch.randn(context_length, width))
         self.ln_final = nn.LayerNorm(width)
 
     def forward(self, x: torch.Tensor):
-        x = self.token_embedding(x)
+        if self.token_embedding is not None:
+            x = self.token_embedding(x)
+            
         x = x + self.positional_embedding
         x = rearrange(x, 'b n d -> n b d')
         x = self.resblocks(x)

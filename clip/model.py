@@ -79,7 +79,7 @@ class ResNet(nn.Module):
 
         self.avgpool = nn.AdaptiveAvgPool2d((2, 2))
         self.fc = nn.Linear(layers[-1].out_ch * 2 * 2, output_dim)
-        
+
     def forward(self, x):
         x = self.stem(x)
         x = self.layers(x)
@@ -110,7 +110,7 @@ class CLIP(nn.Module):
 
         self.image_resolution = image_resolution
 
-        self.resnet = ResNet(
+        self.visual = ResNet(
             layers_strides=vision_layers,
             output_dim=embed_dim,
             width=vision_width
@@ -144,20 +144,24 @@ class CLIP(nn.Module):
         return self.logit_scale.dtype
 
     def encode_image(self, image, normalize=False):
-        image = self.resnet(image.type(self.dtype))
+        image = self.visual(image.type(self.dtype))
         if normalize:
             image = image / image.norm(dim=-1, keepdim=True)
         return image
 
-    def encode_text(self, text, normalize=False):
+    def encode_text(self, text, normalize=False, return_encodings=False):
         x = self.transformer(text)
 
         # x.shape = [batch_size, n_ctx, transformer.width]
         # take features from the eot embedding (eot_token is the highest number in each sequence)
-        x = x[torch.arange(x.shape[0]), text.argmax(dim=-1)] @ self.text_projection
+        text_emb = x[torch.arange(x.shape[0]), text.argmax(dim=-1)] @ self.text_projection
         if normalize:
-            x = x / x.norm(dim=-1, keepdim=True)
-        return x
+            text_emb = text_emb / text_emb.norm(dim=-1, keepdim=True)
+            
+        if return_encodings:
+            return text_emb, x
+        else:
+            return text_emb
 
     def forward(self, image, text):
         """

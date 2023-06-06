@@ -42,6 +42,7 @@ class ImageCaptionDataset(Dataset):
             self.normalize = normalize_clip_embeddings
             self.image_embeddings = [None] * len(self.images)
             self.text_embeddings = [None] * len(self.captions)
+            self.text_encodings = [None] * len(self.captions)
 
         print(f"Dataset size: {len(self.captions)}")
 
@@ -60,10 +61,19 @@ class ImageCaptionDataset(Dataset):
 
         if self.clip is not None:
             if self.image_embeddings[index] is None:
-                self.image_embeddings[index] = self.clip.encode_image(img[None, ...], normalize=self.normalize)
+                self.image_embeddings[index] = self.clip.encode_image(img[None, ...], normalize=self.normalize).detach().squeeze()
+
                 tokens = tokenize([caption], context_length=self.context_length)
-                self.text_embeddings[index] = self.clip.encode_text(tokens, normalize=self.normalize)
-            return img, caption, self.image_embeddings[index].squeeze().clone(), self.text_embeddings[index].squeeze().clone()
+                text_embedding, text_encoding = self.clip.encode_text(tokens, normalize=self.normalize, return_encodings=True)
+                self.text_embeddings[index] = text_embedding.detach().squeeze()
+                self.text_encodings[index] = text_encoding.detach().squeeze()
+
+            clip_embeds = {
+                "image_embedding": self.image_embeddings[index].clone(),
+                "text_embedding": self.text_embeddings[index].clone(),
+                "text_encoding": self.text_encodings[index].clone()
+            }
+            return img, caption, clip_embeds
 
         return img, caption
 

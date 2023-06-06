@@ -32,7 +32,7 @@ wandb.init(
     project="open-dalle-2",
     # track hyperparameters and run metadata
     config=config,
-    mode="disabled"
+    # mode="disabled"
 )
 
 # Define hyperparameters
@@ -81,12 +81,13 @@ classes = ("A plane", "A car", "a bird", "a cat",
 
 def train(decoder: Decoder, dataloader: DataLoader, diffusion: Diffusion, clip: CLIP=None):
     decoder.to(device)
-    wandb.watch(decoder, log="all", log_freq=100)
+    wandb.watch(decoder, log="all", log_freq=300)
 
     optimizer = Adam(decoder.parameters(), lr=LR)
 
     for epoch in range(EPOCHS):
-        for step, (img, txt, image_embedding, text_embedding) in enumerate(dataloader):
+        decoder.train()
+        for step, (img, txt, clip_embeds) in enumerate(dataloader):
             # txt = [classes[i] for i in txt]
 
             # model.train()
@@ -103,9 +104,9 @@ def train(decoder: Decoder, dataloader: DataLoader, diffusion: Diffusion, clip: 
 
             # obtain CLIP emmeddings
             if clip is not None:
-                clip_embedding = image_embedding
+                clip_embedding = clip_embeds["image_embedding"]
                 # clip_embedding = clip.encode_image(img, normalize=decoder_config["normalize_clip_embeddings"])
-                # mask = torch.rand(BATCH_SIZE) < NULL_CLIP_EMB_RATE
+                mask = torch.rand(BATCH_SIZE) < NULL_CLIP_EMB_RATE
                 clip_embedding[mask] = NULL_CLIP_EMB
                 clip_embedding = clip_embedding.to(device=device)
             else:
@@ -113,11 +114,17 @@ def train(decoder: Decoder, dataloader: DataLoader, diffusion: Diffusion, clip: 
 
             x_noisy, noise = diffusion.forward_diffusion_sample(img, t, device)
             noise_pred = decoder(x_noisy, t, tokens=tokens, clip_emb=clip_embedding)
-            loss = F.l1_loss(noise, noise_pred)
+            loss = F.mse_loss(noise, noise_pred)
+
+            # if torch.isnan(loss).any():
+            #     print(noise_pred[0])
+            #     print(noise[0])
+            #     raise ValueError("Loss is NaN")
 
             # loss = get_loss(decoder, img, t, tokens, diffusion, clip_emb=clip_embedding)
             loss.backward()
-            # torch.nn.utils.clip_grad.clip_grad_norm_(decoder.parameters(), GRAD_CLIP)
+            if GRAD_CLIP is not None:
+                torch.nn.utils.clip_grad.clip_grad_norm_(decoder.parameters(), GRAD_CLIP)
             optimizer.step()
 
             if step == 0:
@@ -203,7 +210,7 @@ def show_tensor_image(image):
 
 if __name__ == "__main__":
     # Create diffusion
-    diffusion = Diffusion(T)
+    diffusion = Diffusion(T, schedule=decoder_config["noise_schedule"])
 
     # Create UNet
     unet = UNet(

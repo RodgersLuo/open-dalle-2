@@ -356,7 +356,7 @@ class Polygon(Figure):
 
 if __name__ == "__main__":
     n_test = 2000
-    n_train = 20000
+    n_train = 25000
     train_excluded = [
         "gray",
         ("white", "rectangle"),
@@ -378,7 +378,7 @@ if __name__ == "__main__":
     os.makedirs(test_dir + "/images")
 
     size_drop_prob = 0.3
-    pos_drop_prob = 1
+    pos_drop_prob = 0.3
 
     captions, filenames = [], []
     for i in range(n_train):
@@ -390,7 +390,7 @@ if __name__ == "__main__":
         #     drawing.add_random_figures(2, min_length=20)
         # else:
         #     drawing.add_random_figures(3, min_length=20)
-        drawing.add_random_figures(2, min_length=20)
+        drawing.add_random_figures(1, min_length=25)
         captions.append(drawing.caption(size_drop_prob=size_drop_prob, pos_drop_prob=pos_drop_prob))
         filenames.append(filename)
         drawing.save(os.path.join(train_dir, "images", filename))
@@ -411,7 +411,7 @@ if __name__ == "__main__":
         #     drawing.add_random_figures(2, min_length=20)
         # else:
         #     drawing.add_random_figures(3, min_length=20)
-        drawing.add_random_figures(2, min_length=20)
+        drawing.add_random_figures(1, min_length=25)
         captions.append(drawing.caption(size_drop_prob=size_drop_prob, pos_drop_prob=pos_drop_prob))
         filenames.append(filename)
         drawing.save(os.path.join(test_dir, "images", filename))

@@ -35,7 +35,7 @@ class DALLE2(nn.Module):
 
     @property
     def device(self):
-        return self.prior.learned_query.device
+        return self.prior.query.device
 
     @torch.no_grad()
     def val_mode(self):

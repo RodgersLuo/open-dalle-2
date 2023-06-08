@@ -1,9 +1,7 @@
-import math
-from einops import einsum, rearrange, repeat
+from einops import repeat
 from einops.layers.torch import Rearrange
 import torch
 import torch.nn as nn
-import torch.nn.functional as F
 
 from diffusion import Diffusion
 
@@ -37,8 +35,8 @@ class Prior(nn.Module):
         self.n_text_encodings = n_text_encodings
         self.clip_context_len = clip_context_len
 
-        self.to_text_embeds = nn.Sequential(
-            nn.Linear(clip_emb_dim, clip_emb_dim * n_text_embeds) if n_text_embeds > 1 else nn.Identity(),
+        self.to_text_emb = nn.Sequential(
+            nn.Linear(clip_emb_dim, clip_emb_dim * n_text_embeds),
             Rearrange("b (n d) -> b n d", n = n_text_embeds)
         )
 
@@ -51,20 +49,21 @@ class Prior(nn.Module):
             Rearrange("b (n d) -> b n d", n = n_text_encodings)
         )
 
-        self.to_time_embeds = nn.Sequential(
+        self.to_time_emb = nn.Sequential(
             nn.Embedding(T, clip_emb_dim),
             nn.Linear(clip_emb_dim, clip_emb_dim * n_time_embeds),
             Rearrange("b (n d) -> b n d", n = n_time_embeds)
         )
 
-        self.to_image_embeds = nn.Sequential(
-            nn.Linear(clip_emb_dim, clip_emb_dim * n_image_embeds) if n_image_embeds > 1 else nn.Identity(),
+        self.to_image_emb = nn.Sequential(
+            nn.Linear(clip_emb_dim, clip_emb_dim * n_image_embeds),
             Rearrange("b (n d) -> b n d", n = n_image_embeds)
         )
 
-        self.learned_query = nn.Parameter(torch.randn(clip_emb_dim))
+        self.query = nn.Parameter(torch.randn(clip_emb_dim))
+
         self.transformer = Transformer(width = clip_emb_dim, 
-                                       layers=xf_layers, 
+                                       n_layers=xf_layers, 
                                        heads=xf_heads,
                                        vocab_size=None,
                                        context_length=self.n_tokens,
@@ -96,19 +95,19 @@ class Prior(nn.Module):
         
         batch, _ = image_embed.shape
 
-        text_embed = self.to_text_embeds(text_embed)
-        image_embed = self.to_image_embeds(image_embed)
+        text_embed = self.to_text_emb(text_embed)
+        image_embed = self.to_image_emb(image_embed)
         text_encodings = self.to_text_encodings(text_encodings)
-        time_embed = self.to_time_embeds(diffusion_timesteps)
+        time_embed = self.to_time_emb(diffusion_timesteps)
 
-        learned_queries = repeat(self.learned_query, "d -> b 1 d", b = batch)
+        queries = repeat(self.query, "d -> b 1 d", b = batch)
 
         tokens = torch.cat((
             text_encodings,
             text_embed,
             time_embed,
             image_embed,
-            learned_queries
+            queries
         ), dim = -2)
 
         tokens = self.transformer(tokens)

@@ -1,6 +1,7 @@
 import torch
 from torch import nn
 import math
+from einops import rearrange
 from einops.layers.torch import Rearrange
 from diffusion import Diffusion
 
@@ -167,9 +168,6 @@ class AttentionBlock(nn.Module):
             self.encoder_kv = nn.Conv1d(encoder_channels, channels * 2, 1)
         self.proj_out = zero_params(nn.Conv1d(channels, channels, 1))
 
-    # def forward(self, x, encoder_out=None):
-    #     return checkpoint(self._forward, (x, encoder_out), self.parameters(), self.use_checkpoint)
-
     def forward(self, x, encoder_out=None):
         b, c, *spatial = x.shape
         x = x.reshape(b, c, -1)
@@ -181,35 +179,6 @@ class AttentionBlock(nn.Module):
             h = self.attention(qkv, encoder_out)
         h = self.proj_out(h)
         return (x + h).reshape(b, c, *spatial)
-
-
-# class QKVAttentionLegacy(nn.Module):
-#     """
-#     A module which performs QKV attention. Matches legacy QKVAttention + input/ouput heads shaping
-#     """
-
-#     def __init__(self, n_heads):
-#         super().__init__()
-#         self.n_heads = n_heads
-
-#     def forward(self, qkv):
-#         """
-#         Apply QKV attention.
-
-#         :param qkv: an [N x (H * 3 * C) x T] tensor of Qs, Ks, and Vs.
-#         :return: an [N x (H * C) x T] tensor after attention.
-#         """
-#         bs, width, length = qkv.shape
-#         assert width % (3 * self.n_heads) == 0
-#         ch = width // (3 * self.n_heads)
-#         q, k, v = qkv.reshape(bs * self.n_heads, ch * 3, length).split(ch, dim=1)
-#         scale = 1 / math.sqrt(math.sqrt(ch))
-#         weight = torch.einsum(
-#             "bct,bcs->bts", q * scale, k * scale
-#         )  # More stable with f16 than dividing afterwards
-#         weight = torch.softmax(weight.float(), dim=-1).type(weight.dtype)
-#         a = torch.einsum("bts,bcs->bct", weight, v)
-#         return a.reshape(bs, -1, length)
 
 
 class QKVAttention(nn.Module):
@@ -316,9 +285,6 @@ class UNet(nn.Module):
                 context_length=context_length,
                 attn_mask=None
         )
-        self.final_ln = nn.LayerNorm(transformer_width)
-        self.token_embedding = nn.Embedding(n_vocab, transformer_width)
-        self.positional_embedding = nn.Parameter(torch.rand(context_length, transformer_width, dtype=torch.float))
         self.transformer_proj = nn.Linear(transformer_width, time_emb_dim)
 
         # Initial projection
@@ -355,14 +321,10 @@ class UNet(nn.Module):
         """
         assert tokens is not None
 
-        # xf_in = self.token_embedding(tokens.long())
-        # xf_in = xf_in + self.positional_embedding[None]
-        # xf_out = self.transformer(xf_in)
-        # xf_out = self.final_ln(xf_out)
         xf_out = self.transformer(tokens)
         xf_proj = self.transformer_proj(xf_out[:, -1])
-        xf_out = xf_out.permute(0, 2, 1)  # NLC -> NCL
-        return (xf_proj, xf_out)
+        xf_out = rearrange(xf_out, "b l c -> b c l")
+        return xf_proj, xf_out
 
     def forward(self, x, timestep, tokens, clip_emb):
         # Embed time
@@ -398,7 +360,7 @@ class UNet(nn.Module):
 
 class Decoder(nn.Module):
     def __init__(self,
-                 unet,
+                 unet: UNet,
                  num_timesteps,
                  clip=None
                  ) -> None:
@@ -471,4 +433,4 @@ class Decoder(nn.Module):
 
     @property
     def device(self):
-        return self.unet.positional_embedding.device
+        return self.unet.transformer_proj.device

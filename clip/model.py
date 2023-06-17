@@ -143,13 +143,13 @@ class CLIP(nn.Module):
     def dtype(self):
         return self.logit_scale.dtype
 
-    def encode_image(self, image, normalize=False):
+    def encode_image(self, image, normalize=True):
         image = self.visual(image.type(self.dtype))
         if normalize:
             image = image / image.norm(dim=-1, keepdim=True)
         return image
 
-    def encode_text(self, text, normalize=False, return_encodings=False):
+    def encode_text(self, text, normalize=True, return_encodings=False):
         x = self.transformer(text)
 
         # x.shape = [batch_size, n_ctx, transformer.width]

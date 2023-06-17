@@ -291,7 +291,7 @@ class UNet(nn.Module):
         self.time_mlp = nn.Sequential(
                 SinusoidalPositionEmbeddings(time_emb_dim),
                 nn.Linear(time_emb_dim, time_emb_dim),
-                non_linearity()
+                # non_linearity()
         )
 
         # Project CLIP embedding to timestep embedding
@@ -400,10 +400,13 @@ class Decoder(nn.Module):
     def __init__(self,
                  unet,
                  num_timesteps,
+                 diffusion: Diffusion,
                  clip=None
                  ) -> None:
         super().__init__()
+        assert num_timesteps == diffusion.T, f"num_timesteps must match diffusion.T ({diffusion.T})"
         self.num_timesteps = num_timesteps
+        self.diffusion = diffusion
         self.unet = unet
 
     def forward(self, x, timestep, tokens, clip_emb):
@@ -411,19 +414,19 @@ class Decoder(nn.Module):
         return self.unet(x, timestep, tokens, clip_emb)
 
     @torch.no_grad()
-    def sample_one(self, image_dimensions, text_tokens, clip_emb, diffusion: Diffusion, cf_guidance_scale=None, stepsize=1):
+    def sample_one(self, image_dimensions, text_tokens, clip_emb, cf_guidance_scale=None, stepsize=1):
         device = self.device
         image = torch.randn(1, *image_dimensions, device=device)
 
         for i in range(0, self.num_timesteps, stepsize)[::-1]:
             t = torch.full((1,), i, device=device, dtype=torch.long)
-            image = self.sample_timestep(image, t, text_tokens, clip_emb, diffusion, cf_guidance_scale=cf_guidance_scale)
+            image = self.sample_timestep(image, t, text_tokens, clip_emb, cf_guidance_scale=cf_guidance_scale)
             image = torch.clamp(image, -1.0, 1.0)
         return image
 
 
     @torch.no_grad()
-    def sample_timestep(self, x, t, tokens, clip_emb, diffusion: Diffusion, cf_guidance_scale=None):
+    def sample_timestep(self, x, t, tokens, clip_emb, diffusion: Diffusion = None, cf_guidance_scale=None):
         """
         Calls the model to predict the noise in the image and returns
         the denoised image.
@@ -433,6 +436,8 @@ class Decoder(nn.Module):
         assert len(tokens) == 1
         assert len(clip_emb) == 1
         assert (t < self.num_timesteps).all(), f"timestep must be less than num_timesteps ({self.num_timesteps})"
+
+        diffusion = self.diffusion
 
         betas_t = diffusion.get_index_from_list(diffusion.betas, t, x.shape)
         sqrt_one_minus_alphas_cumprod_t = diffusion.get_index_from_list(

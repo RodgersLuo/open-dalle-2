@@ -106,7 +106,7 @@ def train(decoder: Decoder, dataloader: DataLoader, diffusion: Diffusion, clip: 
             if clip is not None:
                 clip_embedding = clip_embeds["image_embedding"]
                 # clip_embedding = clip.encode_image(img, normalize=decoder_config["normalize_clip_embeddings"])
-                mask = torch.rand(BATCH_SIZE) < NULL_CLIP_EMB_RATE
+                # mask = torch.rand(BATCH_SIZE) < NULL_CLIP_EMB_RATE
                 clip_embedding[mask] = NULL_CLIP_EMB
                 clip_embedding = clip_embedding.to(device=device)
             else:
@@ -180,7 +180,7 @@ def sample_plot_image(decoder: Decoder, tokens, clip_emb, diffusion: Diffusion, 
 
     for i in range(0,T)[::-1]:
         t = torch.full((1,), i, device=device, dtype=torch.long)
-        img = decoder.sample_timestep(img, t, tokens, clip_emb, diffusion, cf_guidance_scale=guidance_scale)
+        img = decoder.sample_timestep(img, t, tokens, clip_emb, cf_guidance_scale=guidance_scale)
         # Edit: This is to maintain the natural range of the distribution
         img = torch.clamp(img, -1.0, 1.0)
         if i % stepsize == 0:
@@ -226,7 +226,7 @@ if __name__ == "__main__":
     )
 
     # Create decoder
-    decoder = Decoder(unet, num_timesteps=T)
+    decoder = Decoder(unet, diffusion=diffusion, num_timesteps=T)
 
     param_size = 0
     for param in decoder.parameters():

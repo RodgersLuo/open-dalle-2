@@ -21,16 +21,15 @@ class DALLE2(nn.Module):
         self.val_mode()
 
     @torch.no_grad()
-    def forward(self, image_dim, text, prior_diffusion: Diffusion, decoder_diffusion: Diffusion, cf_guidance_scale=None):
+    def forward(self, image_dim, text, cf_guidance_scale=None):
         text_tokens = tokenize(text, context_length=self.clip.context_length)
         text_tokens = text_tokens.to(device=self.device)
         text_embedding, text_encodings = self.clip.encode_text(text_tokens, normalize=True, return_encodings=True)
-        image_embedding = self.prior.sample(prior_diffusion, text_embedding, text_encodings=text_encodings)
+        image_embedding = self.prior.sample(text_embedding, text_encodings=text_encodings)
 
         return self.decoder.sample_one(image_dim,
                                         text_tokens,
                                         clip_emb=image_embedding,
-                                        diffusion=decoder_diffusion,
                                         cf_guidance_scale=cf_guidance_scale)
 
     @property

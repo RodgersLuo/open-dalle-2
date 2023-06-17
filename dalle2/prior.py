@@ -17,6 +17,7 @@ class Prior(nn.Module):
         self,
         clip_emb_dim,
         T,
+        diffusion: Diffusion,
         clip_token_dim,
         xf_layers,
         xf_heads,
@@ -31,6 +32,9 @@ class Prior(nn.Module):
         self.clip_dim = clip_emb_dim
 
         self.T = T
+        self.diffusion = diffusion
+        assert self.diffusion.T == self.T, "diffusion timesteps must be the same as the number of timesteps in the prior"
+
         self.n_time_embeds = n_time_embeds
         self.n_image_embeds = n_image_embeds
         self.n_text_embeds = n_text_embeds
@@ -117,7 +121,7 @@ class Prior(nn.Module):
         return tokens[..., -1, :]
 
     @torch.no_grad()
-    def sample(self, diffusion: Diffusion, text_emb, text_encodings):
+    def sample(self, text_emb, text_encodings):
         """
         Sample an image embedding from the text embedding.
         """
@@ -125,8 +129,8 @@ class Prior(nn.Module):
         img_emb_noisy1 = torch.randn_like(text_emb)
         img_emb_noisy2 = torch.randn_like(text_emb)
 
-        img_emb1 = self.sample_one(diffusion, img_emb_noisy1, text_emb, text_encodings)
-        img_emb2 = self.sample_one(diffusion, img_emb_noisy2, text_emb, text_encodings)
+        img_emb1 = self.sample_one(img_emb_noisy1, text_emb, text_encodings)
+        img_emb2 = self.sample_one(img_emb_noisy2, text_emb, text_encodings)
 
         mask = self.dot_product(img_emb1, text_emb) > self.dot_product(img_emb2, text_emb)
         mask = repeat(mask, "b -> b d", d = self.clip_dim)
@@ -134,18 +138,17 @@ class Prior(nn.Module):
 
 
     @torch.no_grad()
-    def sample_one(self, diffusion: Diffusion, img_emb_noisy, text_emb, text_encodings):
+    def sample_one(self, img_emb_noisy, text_emb, text_encodings):
         """
         Calls the model to predict the noise in the image and returns
         the denoised image.
         Applies noise to this image, if we are not in the last step yet.
         """
-        assert self.T == diffusion.T
         for t in range(self.T)[::-1]:
             ts = torch.full((len(text_emb),), t, dtype=torch.long, device=text_emb.device)
             img_emb_noisy = self(img_emb_noisy, ts, text_embed=text_emb, text_encodings=text_encodings)
             if t != 0:
-                posterior_variance_t = diffusion.get_index_from_list(diffusion.posterior_variance, ts, text_emb.shape)
+                posterior_variance_t = self.diffusion.get_index_from_list(self.diffusion.posterior_variance, ts, text_emb.shape)
                 img_emb_noisy += torch.sqrt(posterior_variance_t) * torch.randn_like(img_emb_noisy)
         return img_emb_noisy
 

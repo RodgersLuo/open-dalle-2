@@ -114,7 +114,7 @@ def validate(prior: Prior, val_dataloader: DataLoader, diffusion: Diffusion, ful
         text_encoding = clip_embeds["text_encoding"].to(device=device)
 
         if full_sample:
-            img_emb_pred = prior.sample(diffusion, text_embedding, text_encodings=text_encoding)
+            img_emb_pred = prior.sample(text_embedding, text_encodings=text_encoding)
             predicted_sim = F.cosine_similarity(text_embedding, img_emb_pred, dim=-1).mean().item()
             images_sim = F.cosine_similarity(image_embedding, img_emb_pred, dim=-1).mean().item()
             loss = F.mse_loss(img_emb_pred, image_embedding).item()
@@ -143,6 +143,7 @@ if __name__ == "__main__":
     prior = Prior(
         clip_emb_dim=clip_config["embed_dim"],
         T=T,
+        diffusion=diffusion,
         clip_context_len=CLIP_CONTEXT_LEN,
         clip_token_dim=clip_config["transformer_width"],
         xf_layers=prior_config["xf_layers"],

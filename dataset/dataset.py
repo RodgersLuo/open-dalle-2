@@ -19,11 +19,13 @@ class ImageCaptionDataset(Dataset):
                  shuffle=False,
                  clip=None,
                  context_length=None,
-                 normalize_clip_embeddings=False
+                 normalize_clip_embeddings=False,
+                 return_image_only=False
                  ):
 
         self.transform = transform
         self.root_dir = images_dir
+        self.return_image_only = return_image_only
 
         self.df = pd.read_csv(table_path)
 
@@ -46,6 +48,8 @@ class ImageCaptionDataset(Dataset):
 
         print(f"Dataset size: {len(self.captions)}")
 
+    def image_only(self, return_image_only):
+        self.return_image_only = return_image_only
 
     def __len__(self):
         return len(self.df)
@@ -58,6 +62,9 @@ class ImageCaptionDataset(Dataset):
 
         if (self.transform):
             img = self.transform(img)
+        
+        if self.return_image_only:
+            return img
 
         if self.clip is not None:
             if self.image_embeddings[index] is None:

@@ -1,3 +1,7 @@
+"""
+Ported from https://github.com/openai/CLIP/blob/main/clip/simple_tokenizer.py
+"""
+
 import gzip
 import html
 import os

@@ -89,6 +89,9 @@ class ResNet(nn.Module):
 
 
 class CLIP(nn.Module):
+    """
+    Adapted from https://github.com/openai/CLIP
+    """
 
     def __init__(self,
                  embed_dim: int,
@@ -129,9 +132,7 @@ class CLIP(nn.Module):
         self.logit_scale = nn.Parameter(torch.ones([]) * np.log(1 / 0.07))
 
     def build_attention_mask(self):
-        """
-        Taken from https://github.com/openai/CLIP
-        """
+
         # lazily create causal attention mask, with full attention between the vision tokens
         # pytorch uses additive attention mask; fill with -inf
         mask = torch.empty(self.context_length, self.context_length)
@@ -157,7 +158,7 @@ class CLIP(nn.Module):
         text_emb = x[torch.arange(x.shape[0]), text.argmax(dim=-1)] @ self.text_projection
         if normalize:
             text_emb = text_emb / text_emb.norm(dim=-1, keepdim=True)
-            
+
         if return_encodings:
             return text_emb, x
         else:

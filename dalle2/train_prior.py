@@ -124,7 +124,7 @@ def validate(prior: Prior, val_dataloader: DataLoader, diffusion: Diffusion, ful
         else:
             t = torch.randint(0, T, (BATCH_SIZE,), device=device).long()
 
-            img_emb_noisy, noise = diffusion.forward_diffusion_sample(image_embedding, t, device)
+            img_emb_noisy, noise = prior.diffusion.forward_diffusion_sample(image_embedding, t, device)
             img_emb_pred = prior(img_emb_noisy, t, text_embed=text_embedding, text_encodings=text_encoding)
             predicted_sim = F.cosine_similarity(text_embedding, img_emb_pred, dim=-1).mean().item()
             images_sim = F.cosine_similarity(image_embedding, img_emb_pred, dim=-1).mean().item()

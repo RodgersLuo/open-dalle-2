@@ -1,3 +1,8 @@
+"""
+Adapted from: https://github.com/openai/CLIP/blob/main/clip/model.py
+"""
+
+
 from collections import OrderedDict
 
 import torch
@@ -59,7 +64,7 @@ class Transformer(nn.Module):
     def forward(self, x: torch.Tensor):
         if self.token_embedding is not None:
             x = self.token_embedding(x)
-            
+
         x = x + self.positional_embedding
         x = rearrange(x, 'b n d -> n b d')
         x = self.resblocks(x)

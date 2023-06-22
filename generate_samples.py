@@ -245,11 +245,12 @@ for i in range(len(captions)):
     caption = captions[i]
     start_time = time.time()
     image = dalle2((3, IMG_SIZE, IMG_SIZE), caption, cf_guidance_scale=2)
-    times.append(time.time() - start_time)
+    rtime = time.time() - start_time
+    times.append(rtime)
 
     image = image.detach().cpu()
     if i % 10 == 0:
-        print(i)
+        print(i, rtime)
 
     filename = f"{i}.png"
     image = reverse_transforms(image.squeeze(0))

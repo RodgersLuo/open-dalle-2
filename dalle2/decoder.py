@@ -291,7 +291,7 @@ class UNet(nn.Module):
         self.time_mlp = nn.Sequential(
                 SinusoidalPositionEmbeddings(time_emb_dim),
                 nn.Linear(time_emb_dim, time_emb_dim),
-                # non_linearity()
+                non_linearity()
         )
 
         # Project CLIP embedding to timestep embedding

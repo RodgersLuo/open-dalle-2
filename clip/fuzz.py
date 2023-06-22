@@ -9,11 +9,6 @@ sys.path.insert(0, 'nn_components')
 from tokenizer import tokenize
 
 
-# model = CLIP(embed_dim=128, image_resolution=128, vision_layers=(1, 1, 1, 1),
-#         vision_width=256, vision_patch_size=None, context_length=77,
-#         vocab_size=49408, transformer_width=64, transformer_heads=8, transformer_layers=4)
-
-
 with open('./model_config.yml', 'r') as file:
     config = yaml.safe_load(file)
     decoder_config = config["Decoder"]

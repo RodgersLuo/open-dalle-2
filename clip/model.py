@@ -95,7 +95,7 @@ class CLIP(nn.Module):
 
     def __init__(self,
                  embed_dim: int,
-                 # vision
+                 # image
                  image_resolution: int,
                  vision_layers: Tuple[int, int, int, int],
                  vision_width: int,
@@ -113,7 +113,7 @@ class CLIP(nn.Module):
 
         self.image_resolution = image_resolution
 
-        self.visual = ResNet(
+        self.resnet = ResNet(
             layers_strides=vision_layers,
             output_dim=embed_dim,
             width=vision_width
@@ -121,7 +121,7 @@ class CLIP(nn.Module):
 
         self.transformer = Transformer(
             width=transformer_width,
-            layers=transformer_layers,
+            n_layers=transformer_layers,
             heads=transformer_heads,
             vocab_size=vocab_size,
             context_length=context_length,
@@ -130,6 +130,8 @@ class CLIP(nn.Module):
 
         self.text_projection = nn.Parameter(torch.randn(transformer_width, embed_dim))
         self.logit_scale = nn.Parameter(torch.ones([]) * np.log(1 / 0.07))
+        # self.logit_scale = nn.Parameter(torch.log(torch.ones(1) * (1 / 0.07)))
+
 
     def build_attention_mask(self):
 
@@ -144,8 +146,8 @@ class CLIP(nn.Module):
     def dtype(self):
         return self.logit_scale.dtype
 
-    def encode_image(self, image, normalize=True):
-        image = self.visual(image.type(self.dtype))
+    def encode_image(self, image, normalize=False):
+        image = self.resnet(image.type(self.dtype))
         if normalize:
             image = image / image.norm(dim=-1, keepdim=True)
         return image

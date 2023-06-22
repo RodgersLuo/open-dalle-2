@@ -3,13 +3,13 @@ data_path: "./data3"
 
 CLIP:
   batch_size: 256
-  epochs: 50
+  epochs: 23
   lr: 3.0e-4
   embed_dim: 256
 
   # Image encoder
   vision_layers: [1, 2, 2, 2]
-  vision_width: 16
+  vision_width: 32
   vision_patch_size: null
 
   # Text encoder
@@ -19,7 +19,7 @@ CLIP:
   transformer_heads: 16
   transformer_layers: 8
 
-  model_path: "./models/clip3.pth"
+  model_path: "./models/clip4.pth"
 
 Decoder:
   # Define hyperparameters
@@ -29,9 +29,9 @@ Decoder:
   epochs: 1500
   lr: 0.001
   # grad_clip: 0.005
-  grad_clip: 1
-  null_text_emb_rate: 0.2
-  null_clip_emb_rate: 0.2
+  grad_clip: null
+  null_text_emb_rate: 0.5
+  null_clip_emb_rate: 0.1
   guidance_scale: 3
 
   # UNet
@@ -49,7 +49,7 @@ Decoder:
   qkv_heads: 8
 
   normalize_clip_embeddings: True
-  model_path: "./models/decoder3_cosine.pth"
+  model_path: "./models/decoder4_cosine_ori.pth"
 
 Prior:
   # Define hyperparameters
@@ -65,4 +65,4 @@ Prior:
   xf_heads: 16
   # ff_mult: 4
 
-  model_path: "./models/prior3_cosine.pth"
+  model_path: "./models/prior4_cosine.pth"

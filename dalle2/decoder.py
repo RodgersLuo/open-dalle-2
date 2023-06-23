@@ -121,16 +121,19 @@ class ResidualBlock(nn.Module):
 
 
 class SinusoidalPositionEmbeddings(nn.Module):
+    """
+    Adapted from:
+    https://github.com/openai/improved-diffusion/blob/783b6740edb79fdb7d063250db2c51cc9545dcd1/improved_diffusion/nn.py#L103
+    """
     def __init__(self, dim):
         super().__init__()
         self.dim = dim
 
     def forward(self, time):
-        device = time.device
         half_dim = self.dim // 2
         embeddings = math.log(10000) / (half_dim - 1)
-        embeddings = torch.exp(torch.arange(half_dim, device=device) * -embeddings)
-        embeddings = time[:, None] * embeddings[None, :]
+        embeddings = torch.exp(-torch.arange(half_dim, device=time.device) * embeddings)
+        embed = torch.outer(time.ravel(), embed)
         embeddings = torch.cat((embeddings.sin(), embeddings.cos()), dim=-1)
         return embeddings
 
@@ -139,8 +142,8 @@ class AttentionBlock(nn.Module):
     """
     An attention block that allows spatial positions to attend to each other.
 
-    Originally ported from here, but adapted to the N-d case.
-    https://github.com/hojonathanho/diffusion/blob/1e0dceb3b3495bbe19116a5e1b3596cd0706c543/diffusion_tf/models/unet.py#L66.
+    Ported from:
+    https://github.com/openai/improved-diffusion/blob/783b6740edb79fdb7d063250db2c51cc9545dcd1/improved_diffusion/unet.py#L200
     """
 
     def __init__(
@@ -184,6 +187,9 @@ class AttentionBlock(nn.Module):
 class QKVAttention(nn.Module):
     """
     A module which performs QKV attention and splits in a different order.
+
+    Ported from:
+    https://github.com/openai/improved-diffusion/blob/783b6740edb79fdb7d063250db2c51cc9545dcd1/improved_diffusion/unet.py#L200
     """
 
     def __init__(self, n_heads):
@@ -401,11 +407,11 @@ class Decoder(nn.Module):
 
         diffusion = self.diffusion
 
-        betas_t = diffusion.get_index_from_list(diffusion.betas, t, x.shape)
-        sqrt_one_minus_alphas_cumprod_t = diffusion.get_index_from_list(
-            diffusion.sqrt_one_minus_alphas_cumprod, t, x.shape
+        betas_t = diffusion.retireve_values(diffusion.betas, t, x.shape)
+        sqrt_one_minus_alphas_cumprod_t = diffusion.retireve_values(
+            diffusion.sqrt_one_minus_alphas_bar, t, x.shape
         )
-        sqrt_recip_alphas_t = diffusion.get_index_from_list(diffusion.sqrt_recip_alphas, t, x.shape)
+        sqrt_recip_alphas_t = diffusion.retireve_values(diffusion.sqrt_alphas_recip, t, x.shape)
 
         if cf_guidance_scale is None:
             # No classfier-free guidance
@@ -427,7 +433,7 @@ class Decoder(nn.Module):
         model_mean = sqrt_recip_alphas_t * (
             x - betas_t * noise / sqrt_one_minus_alphas_cumprod_t
         )
-        posterior_variance_t = diffusion.get_index_from_list(diffusion.posterior_variance, t, x.shape)
+        posterior_variance_t = diffusion.retireve_values(diffusion.posterior_variance, t, x.shape)
 
         if t == 0:
             # The t's are offset from the t's in the paper

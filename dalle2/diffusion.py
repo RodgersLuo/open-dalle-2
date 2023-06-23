@@ -29,23 +29,37 @@ class Diffusion:
             self.betas = self.cosine_beta_schedule(T=T)
 
         self.alphas = 1. - self.betas
+        # bar alpha_t
+        self.alphas_bar = torch.cumprod(self.alphas, axis=0)
 
-        self.alphas_cumprod = torch.cumprod(self.alphas, axis=0)
-        self.alphas_cumprod_prev = F.pad(self.alphas_cumprod[:-1], (1, 0), value=1.0)
-        self.sqrt_recip_alphas = torch.sqrt(1.0 / self.alphas)
-        self.sqrt_alphas_cumprod = torch.sqrt(self.alphas_cumprod)
-        self.sqrt_one_minus_alphas_cumprod = torch.sqrt(1. - self.alphas_cumprod)
-        self.posterior_variance = self.betas * (1. - self.alphas_cumprod_prev) \
-            / (1. - self.alphas_cumprod)
+        # bar alpha_{t-1}
+        self.alphas_bar_prev = torch.ones_like(self.alphas_bar)
+        self.alphas_bar_prev[1:] = self.alphas_bar[:-1]
 
-    def get_index_from_list(self, vals, t, x_shape):
+        # sqrt(bar alpha_t)
+        self.sqrt_alphas_bar = torch.sqrt(self.alphas_bar)
+
+        # 1 / sqrt(alpha_t)
+        self.sqrt_alphas_recip = torch.sqrt(1.0 / self.alphas)
+
+        # sqrt(1 - bar alpha_t)
+        self.sqrt_one_minus_alphas_bar = torch.sqrt(1. - self.alphas_bar)
+
+        # tilde beta_t
+        self.posterior_variance = self.betas * (1. - self.alphas_bar_prev) / (1. - self.alphas_bar)
+
+    def retireve_values(self, values, i, x_shape):
         """
-        Returns a specific index t of a passed list of values vals
-        while considering the batch dimension.
+        Gets the value from a list of values at a specific index.
+        :param values: the list of values
+        :param i: the index
+        :param x_shape: the shape of the input
+        :return: the value at the index
         """
-        batch_size = t.shape[0]
-        out = vals.gather(-1, t.cpu())
-        return out.reshape(batch_size, *((1,) * (len(x_shape) - 1))).to(t.device)
+        batch, *_ = i.shape
+        out = values.gather(-1, i.cpu())
+        shape = [1 for _ in range(len(x_shape - 1))]
+        return out.reshape(batch, *tuple(shape)).to(i.device)
 
     def forward_diffusion_sample(self, x_0, t, device="cpu"):
         """
@@ -56,11 +70,7 @@ class Diffusion:
         :return: the sampled data and the noise
         """
         noise = torch.randn_like(x_0).to(device)
-        sqrt_alphas_cumprod_t = self.get_index_from_list(self.sqrt_alphas_cumprod, t, x_0.shape)
-        sqrt_one_minus_alphas_cumprod_t = self.get_index_from_list(
-            self.sqrt_one_minus_alphas_cumprod, t, x_0.shape
-        )
-        # mean + variance
-        return sqrt_alphas_cumprod_t.to(device) * x_0.to(device) \
-        + sqrt_one_minus_alphas_cumprod_t.to(device) * noise, noise
+        mean = self.retireve_values(self.sqrt_alphas_bar, t, x_0.shape).to(device) * x_0.to(device)
+        std = self.retireve_values(self.sqrt_one_minus_alphas_bar, t, x_0.shape).to(device) * noise
+        return mean + std, noise
 

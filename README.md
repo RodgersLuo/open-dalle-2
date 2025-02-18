@@ -1,5 +1,7 @@
 # Open DALL-E 2: a simplified implementation of DALL-E 2.
 
+[Link to the report](./final_report.pdf)
+
 This is a implementation of OpenAI's DALL-E 2 \[[Link](https://openai.com/dall-e-2)\] [[Paper](https://arxiv.org/abs/2204.06125)] in PyTorch. This implementation is suitable for simple text-to-image generation tasks. 
 
 
